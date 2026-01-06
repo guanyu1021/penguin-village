@@ -2,55 +2,76 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>管理者 - 沙盤控制台</title>
+    <title>尼可恰大王：沙盤征服戰 V8.1 - 管理者後台</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
-        .grid-cell { width: 22px; height: 22px; border: 0.1px solid #444; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.1s; }
-        .cell-base { background-color: #ef4444; color: white; border: 2px solid #b91c1c; }
-        .cell-stone { background-color: #475569; color: white; border: 2px solid #1e293b; font-size: 14px; }
+        .grid-cell { width: 22px; height: 22px; border: 0.1px solid #444; font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; }
+        .cell-base-unclaimed { background-color: #ef4444; color: white; border: 2px solid #b91c1c; }
         .cell-item { background-color: #facc15; border: 1px solid #ca8a04; color: #854d0e; }
-        .sidebar { height: 100vh; overflow-y: auto; background-color: #1e293b; color: white; }
-        #game-map { display: grid; grid-template-columns: repeat(32, 22px); background-color: #334155; padding: 4px; gap: 1px; }
+        .cell-item-disabled { background-color: #334155 !important; border: 1px dashed #64748b !important; color: #94a3b8; }
+        .cell-stone { background-color: #475569; color: white; border: 2px solid #1e293b; font-size: 14px; }
         .preview-valid { background-color: rgba(34, 197, 94, 0.6) !important; }
         .preview-invalid { background-color: rgba(239, 68, 68, 0.6) !important; }
+        .preview-remove { background-color: rgba(255, 255, 255, 0.5) !important; outline: 2px solid white; }
+        .sidebar { height: 100vh; overflow-y: auto; background-color: #1e293b; color: white; }
+        #game-map { display: grid; grid-template-columns: repeat(32, 22px); background-color: #334155; padding: 4px; gap: 1px; }
     </style>
 </head>
 <body class="bg-slate-900 flex">
+
     <div class="w-80 p-4 sidebar flex flex-col gap-4">
-        <h1 class="text-xl font-bold text-red-400 border-b border-slate-600 pb-2">管理者操作</h1>
+        <h1 class="text-xl font-bold text-blue-400 border-b border-slate-600 pb-2">沙盤管理系統 V8.1</h1>
         
-        <label class="text-sm text-slate-400">當前操作小分隊：</label>
-        <select id="team-select" onchange="currentTeamIdx = this.value" class="w-full p-2 bg-slate-700 rounded text-white"></select>
-        
-        <div class="grid grid-cols-3 gap-1">
-            <button onclick="currentMode='place'" class="py-2 bg-blue-600 rounded text-xs font-bold">放置模式</button>
-            <button onclick="currentMode='stone'" class="py-2 bg-slate-600 rounded text-xs font-bold">石頭模式</button>
-            <button onclick="currentMode='remove'" class="py-2 bg-red-800 rounded text-xs font-bold">移除模式</button>
+        <div>
+            <label class="block text-sm mb-1 text-slate-400">當前小分隊</label>
+            <select id="team-select" onchange="changeTeam(this.value)" class="w-full p-2 bg-slate-700 rounded border border-slate-500 outline-none text-white"></select>
         </div>
 
-        <div id="tile-palette" class="grid grid-cols-4 gap-2 border-t border-slate-700 pt-4"></div>
-        
-        <div id="score-board" class="mt-4 space-y-1 text-xs"></div>
-        
-        <button onclick="resetGame()" class="mt-auto py-2 bg-red-600 rounded font-bold">⚠️ 重置全場資料</button>
+        <div class="flex flex-col gap-2">
+            <label class="block text-sm text-slate-400 font-bold">操作模式</label>
+            <div class="grid grid-cols-3 gap-1">
+                <button id="mode-place" onclick="setMode('place')" class="py-2 rounded font-bold bg-blue-600 text-white transition text-sm">放置</button>
+                <button id="mode-stone" onclick="setMode('stone')" class="py-2 rounded font-bold bg-slate-600 text-white transition text-sm">石頭</button>
+                <button id="mode-remove" onclick="setMode('remove')" class="py-2 rounded font-bold bg-slate-600 text-white transition text-sm">移除</button>
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm mb-2 text-slate-400">土地板塊 (1-16)</label>
+            <div id="tile-palette" class="grid grid-cols-4 gap-2"></div>
+        </div>
+
+        <div class="flex-1">
+            <h2 class="font-bold text-sm mb-2 text-yellow-500 border-b border-slate-700 pb-1">計分榜 (自動同步)</h2>
+            <div id="score-board" class="text-[11px] space-y-2"></div>
+        </div>
+
+        <button onclick="resetCloudData()" class="mt-4 py-2 bg-red-900 text-white rounded font-bold text-xs">⚠️ 重置雲端所有數據</button>
     </div>
 
-    <div class="flex-1 flex flex-col items-center justify-center p-4">
-        <div id="game-map"></div>
+    <div class="flex-1 flex flex-col items-center justify-start p-6 overflow-auto">
+        <div id="status-display" class="mb-4 px-6 py-2 rounded-full bg-slate-800 text-white font-bold text-lg shadow-lg min-w-[300px] text-center">連線中...</div>
+        <div class="bg-slate-700 p-2 rounded shadow-2xl">
+            <div id="game-map"></div>
+        </div>
     </div>
 
-    <div id="modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center z-50">
-        <div class="bg-white p-8 rounded-xl text-center">
-            <h2 class="text-3xl font-bold mb-4">🎁 獲得道具！</h2>
-            <p id="modal-text" class="text-xl mb-6"></p>
-            <button onclick="document.getElementById('modal').classList.add('hidden')" class="px-6 py-2 bg-blue-600 text-white rounded-lg">確認</button>
+    <div id="item-modal" class="fixed inset-0 bg-black/70 hidden z-50 flex items-center justify-center">
+        <div class="bg-white p-8 rounded-2xl text-center max-w-sm">
+            <span id="modal-icon" class="text-4xl">🎁</span>
+            <h3 id="modal-title" class="text-2xl font-bold mt-2">提示</h3>
+            <p id="modal-text" class="text-lg my-4 text-slate-600 font-bold"></p>
+            <div id="modal-footer" class="flex justify-center gap-4">
+                <button id="modal-confirm-btn" onclick="closeModal()" class="bg-blue-600 text-white px-8 py-2 rounded-lg font-bold hover:bg-blue-500">確認</button>
+                <button id="modal-cancel-btn" onclick="closeModal()" class="bg-slate-400 text-white px-8 py-2 rounded-lg font-bold hover:bg-slate-300 hidden">取消</button>
+            </div>
         </div>
     </div>
 
     <script>
-        // === ⚠️ 請在此填入你的 FIREBASE CONFIG ===
+        // === ⚠️ 請填入你的 FIREBASE 配置 ===
         const firebaseConfig = {
             apiKey: "AIzaSyBBufDrt_ReM-5qLeQyJs2nXAwdMO_TbC4",
             authDomain: "sunflower-b5be6.firebaseapp.com",
@@ -60,144 +81,428 @@
             appId: "1:206261082118:web:77e158bd61b287056a8b87",
             measurementId: "G-T477KW8R2L"
         };
-        // =========================================
-
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
+        // === 遊戲常數設定 ===
         const GRID_SIZE = 32;
-        const TILE_DEFS = { 1: [[0,0]], 2: [[0,0],[0,1]], 3: [[0,0],[0,1],[1,1]], 4: [[0,0],[0,1],[0,2]], 5: [[0,0],[0,1],[0,2],[1,2]], 6: [[0,0],[0,1],[0,2],[0,3]] };
+        const TILE_DEFS = {
+            1: [[0,0]], 2: [[0,0],[0,1]], 3: [[0,0],[0,1],[1,1]], 4: [[0,0],[0,1],[0,2]], 
+            5: [[0,0],[0,1],[0,2],[1,2]], 6: [[0,0],[0,1],[0,2],[0,3]], 7: [[0,0],[0,1],[0,2],[1,1]], 
+            8: [[0,0],[0,1],[1,1],[1,2]], 9: [[0,0],[1,0],[1,1],[1,2],[0,2]], 
+            10: [[0,0],[1,0],[1,1],[1,2],[2,2]], 11: [[0,0],[1,0],[1,1],[1,2],[2,1]], 
+            12: [[0,0],[0,1],[0,2],[1,1],[2,1]], 13: [[0,0],[1,0],[2,0],[2,1],[2,2]], 
+            14: [[0,0],[0,1],[0,2],[0,3],[1,1]], 15: [[0,0],[0,1],[0,2],[1,2],[1,3]], 
+            16: [[0,0],[0,1],[1,1],[1,2],[2,2]]
+        };
         const BASE_LOCS = [{r:4, c:4}, {r:4, c:12}, {r:4, c:21}, {r:4, c:29}, {r:12, c:4}, {r:12, c:12}, {r:12, c:21}, {r:12, c:29}, {r:21, c:4}, {r:21, c:12}, {r:21, c:21}, {r:21, c:29}, {r:29, c:4}, {r:29, c:12}, {r:29, c:21}, {r:29, c:29}];
-        const ITEM_LOCS = [{r:8, c:16, name:"加分卡"}, {r:16, c:8, name:"雙倍卡"}, {r:16, c:25, name:"加分卡"}];
+        const SINGLE_ITEMS = [{r:1, c:8}, {r:1, c:25}, {r:8, c:1}, {r:8, c:8}, {r:8, c:25}, {r:8, c:32}, {r:25, c:1}, {r:25, c:8}, {r:25, c:25}, {r:25, c:32}, {r:32, c:8}, {r:32, c:25}];
+        const ITEM_GROUPS = [[{r:8, c:16}, {r:8, c:17}], [{r:16, c:8}, {r:17, c:8}], [{r:16, c:16}, {r:16, c:17}, {r:17, c:16}, {r:17, c:17}], [{r:16, c:25}, {r:17, c:25}], [{r:25, c:16}, {r:25, c:17}]];
         const COLORS = ['#F87171','#FB923C','#FBBF24','#34D399','#22D3EE','#60A5FA','#818CF8','#A78BFA','#C084FC','#F472B6','#94A3B8','#4ADE80','#A3E635','#FACC15','#2DD4BF','#FB7185'];
 
-        let mapData = Array(GRID_SIZE+1).fill().map(() => Array(GRID_SIZE+1).fill(null));
-        let teamInfo = [];
+        // === 運作狀態變數 ===
+        let itemPool = ["石頭", "石頭", "石頭", "拆除卡", "拆除卡", "搶奪卡", "搶奪卡", "防禦卡", "防禦卡", "防禦卡", "干擾卡", "干擾卡", "干擾卡", "雙倍卡", "雙倍卡", "雙倍卡", "加分卡"];
         let currentTeamIdx = 0;
-        let currentMode = 'place';
+        let currentShapeIdx = 1;
         let currentShape = TILE_DEFS[1];
+        let currentMode = 'place';
+        let mapData = Array(GRID_SIZE+1).fill().map(() => Array(GRID_SIZE+1).fill(null));
+        let placedTiles = []; 
+        let teamInfo = [];
+        let deadItems = new Set();
+        let triggeredGroups = new Set();
+
+        // === 雲端同步函式 ===
+        function sync() {
+            db.ref('gameData').set({
+                mapData, 
+                teamInfo, 
+                placedTiles, 
+                itemPool, 
+                deadItems: Array.from(deadItems), 
+                triggeredGroups: Array.from(triggeredGroups)
+            });
+        }
 
         function init() {
-            // 初始化隊伍
+            // 初始化隊伍清單
             const select = document.getElementById('team-select');
             for(let i=0; i<16; i++) {
                 const id = `${Math.floor(i/2)+1}${i%2===0?'A':'B'}`;
-                teamInfo.push({ id, color: COLORS[i], score: 0, baseSelected: false, baseCoord: null });
+                teamInfo.push({ id, color: COLORS[i], score: 0, baseSelected: false, baseCoord: null, penalties: [false, false] });
                 const opt = document.createElement('option');
                 opt.value = i; opt.textContent = `第 ${id} 小隊`;
                 select.appendChild(opt);
             }
 
-            // 繪製地圖
+            // 建立地圖 DOM
             const mapEl = document.getElementById('game-map');
             for(let r=1; r<=GRID_SIZE; r++) {
                 for(let c=1; c<=GRID_SIZE; c++) {
                     const cell = document.createElement('div');
                     cell.className = 'grid-cell';
-                    cell.id = `cell-${r}-${c}`;
-                    cell.onclick = () => handleClick(r, c);
+                    cell.id = `c-${r}-${c}`;
                     cell.onmouseenter = () => handlePreview(r, c);
+                    cell.onmouseleave = () => resetStatusDisplay();
+                    cell.onclick = () => handleClick(r, c);
                     mapEl.appendChild(cell);
                 }
             }
 
-            // 調色盤
+            // 板塊選擇按鈕
             const palette = document.getElementById('tile-palette');
             Object.keys(TILE_DEFS).forEach(k => {
-                const btn = document.createElement('button');
-                btn.className = "bg-slate-700 p-1 rounded text-[10px]";
-                btn.textContent = `形狀 ${k}`;
-                btn.onclick = () => { currentShape = TILE_DEFS[k]; currentMode = 'place'; };
-                palette.appendChild(btn);
+                const b = document.createElement('button');
+                b.className = 'bg-slate-600 p-2 rounded hover:bg-blue-500 text-xs font-bold text-white';
+                b.textContent = k;
+                b.onclick = () => { 
+                    currentShapeIdx = parseInt(k); 
+                    currentShape = TILE_DEFS[k]; 
+                    setMode('place'); 
+                };
+                palette.appendChild(b);
             });
 
-            // 監聽雲端資料
+            // 監聽雲端數據 (即時更新)
             db.ref('gameData').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
                     mapData = data.mapData;
                     teamInfo = data.teamInfo;
-                    renderMap();
-                    renderScores();
+                    placedTiles = data.placedTiles || [];
+                    itemPool = data.itemPool || [];
+                    deadItems = new Set(data.deadItems || []);
+                    triggeredGroups = new Set(data.triggeredGroups || []);
+                    refreshFullMap();
+                    updateScoresDisplay();
+                } else {
+                    resetStatusDisplay();
                 }
             });
         }
 
-        function sync() {
-            db.ref('gameData').set({ mapData, teamInfo });
+        function refreshFullMap() {
+            for(let r=1; r<=GRID_SIZE; r++) {
+                for(let c=1; c<=GRID_SIZE; c++) {
+                    refreshCellDisplay(r, c);
+                }
+            }
+            // 重新繪製邊框
+            placedTiles.forEach(tile => drawTileBorder(tile.coords));
+        }
+
+        function refreshCellDisplay(r, c) {
+            const el = document.getElementById(`c-${r}-${c}`);
+            if(!el) return;
+            el.classList.remove('cell-base-unclaimed', 'cell-item', 'cell-item-disabled', 'cell-stone');
+            el.textContent = "";
+            el.style.backgroundColor = "";
+            el.style.boxShadow = "";
+            el.style.border = "0.1px solid #444";
+            
+            const cell = mapData[r][c];
+            if(cell) {
+                if(cell.type === 'stone') {
+                    el.classList.add('cell-stone');
+                    el.textContent = "🪨";
+                } else {
+                    const t = teamInfo.find(ti => ti.id === cell.teamId);
+                    if(t) {
+                        el.style.backgroundColor = t.color;
+                        if(t.baseCoord?.r === r && t.baseCoord?.c === c) el.textContent = t.id;
+                    }
+                }
+            } else {
+                if(BASE_LOCS.find(b => b.r === r && b.c === c)) {
+                    el.classList.add('cell-base-unclaimed');
+                } else if(deadItems.has(`${r},${c}`)) {
+                    el.classList.add('cell-item-disabled');
+                } else if(isItem(r, c)) {
+                    el.classList.add('cell-item');
+                }
+            }
+        }
+
+        function changeTeam(val) {
+            currentTeamIdx = parseInt(val);
+            resetStatusDisplay();
+        }
+
+        function resetStatusDisplay() {
+            const team = teamInfo[currentTeamIdx];
+            document.getElementById('status-display').textContent = `操作中：${team.id} 小隊 ${!team.baseSelected ? '(請選基地)' : ''}`;
+        }
+
+        function isItem(r, c) {
+            if(SINGLE_ITEMS.some(it => it.r === r && it.c === c)) return true;
+            for(let group of ITEM_GROUPS) {
+                if(group.some(it => it.r === r && it.c === c)) return true;
+            }
+            return false;
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('mode-place').className = mode === 'place' ? 'py-2 rounded font-bold bg-blue-600 text-white text-sm' : 'py-2 rounded font-bold bg-slate-600 text-white text-sm';
+            document.getElementById('mode-stone').className = mode === 'stone' ? 'py-2 rounded font-bold bg-gray-500 text-white text-sm' : 'py-2 rounded font-bold bg-slate-600 text-white text-sm';
+            document.getElementById('mode-remove').className = mode === 'remove' ? 'py-2 rounded font-bold bg-red-600 text-white text-sm' : 'py-2 rounded font-bold bg-slate-600 text-white text-sm';
+        }
+
+        function handlePreview(r, c) {
+            document.querySelectorAll('.grid-cell').forEach(el => el.classList.remove('preview-valid', 'preview-invalid', 'preview-remove'));
+            const team = teamInfo[currentTeamIdx];
+            const statusBox = document.getElementById('status-display');
+
+            if(currentMode === 'remove') {
+                const cellData = mapData[r][c];
+                if(cellData) {
+                    if(cellData.type === 'stone') {
+                        document.getElementById(`c-${r}-${c}`).classList.add('preview-remove');
+                    } else if(cellData.teamId === team.id) {
+                        const tile = placedTiles.find(t => t.id === cellData.tileId);
+                        if(tile) tile.coords.forEach(pos => document.getElementById(`c-${pos.r}-${pos.c}`).classList.add('preview-remove'));
+                    }
+                }
+                return;
+            }
+
+            if(currentMode === 'stone') {
+                const canPlaceStone = !mapData[r][c];
+                document.getElementById(`c-${r}-${c}`).classList.add(canPlaceStone ? 'preview-valid' : 'preview-invalid');
+                return;
+            }
+
+            const legality = checkLegality(r, c, team);
+            statusBox.textContent = `${team.id} 小隊：${legality.msg}`;
+            
+            currentShape.forEach(([dr, dc]) => {
+                const nr = r + dr, nc = c + dc;
+                if(nr>=1 && nr<=GRID_SIZE && nc>=1 && nc<=GRID_SIZE) {
+                    const el = document.getElementById(`c-${nr}-${nc}`);
+                    el.classList.add(legality.valid ? 'preview-valid' : 'preview-invalid');
+                }
+            });
+        }
+
+        function checkLegality(r, c, team) {
+            if(!team.baseSelected) {
+                const isBase = BASE_LOCS.find(b => b.r === r && b.c === c);
+                if(isBase && !mapData[r][c]) return {valid: true, msg: "可選為基地"};
+                return {valid: false, msg: "請選紅格基地"};
+            }
+            let hasConnect = false;
+            let cellsToPlace = [];
+            for(let [dr, dc] of currentShape) {
+                const nr = r + dr, nc = c + dc;
+                if(nr<1 || nr>GRID_SIZE || nc<1 || nc>GRID_SIZE) return {valid: false, msg: "超出邊界"};
+                if(mapData[nr][nc]) return {valid: false, msg: "位置重疊"};
+                cellsToPlace.push({r: nr, c: nc});
+            }
+            for(let pos of cellsToPlace) {
+                const adj = [[0,1],[0,-1],[1,0],[-1,0]];
+                for(let [ar, ac] of adj) {
+                    const nr = pos.r + ar, nc = pos.c + ac;
+                    if(nr<1 || nr>GRID_SIZE || nc<1 || nc>GRID_SIZE) continue;
+                    const neighbor = mapData[nr][nc];
+                    if(neighbor && neighbor.type !== 'stone') {
+                        if(neighbor.teamId === team.id) hasConnect = true;
+                        else return {valid: false, msg: "不可與他隊土地相鄰"};
+                    }
+                }
+            }
+            return hasConnect ? {valid: true, msg: "可放置"} : {valid: false, msg: "須鄰接己方領土"};
         }
 
         function handleClick(r, c) {
             const team = teamInfo[currentTeamIdx];
-            if(currentMode === 'stone') {
-                mapData[r][c] = { type: 'stone' };
-            } else if(currentMode === 'remove') {
-                mapData[r][c] = null;
-            } else {
-                if(!team.baseSelected) {
-                    if(BASE_LOCS.find(b => b.r === r && b.c === c)) {
-                        team.baseSelected = true; team.baseCoord = {r,c};
-                        mapData[r][c] = { teamId: team.id };
-                    }
-                } else {
-                    const coords = currentShape.map(p => ({r: r+p[0], c: c+p[1]}));
-                    if(canPlace(coords, team.id)) {
-                        coords.forEach(p => {
-                            mapData[p.r][p.c] = { teamId: team.id };
-                            const item = ITEM_LOCS.find(it => it.r === p.r && it.c === p.c);
-                            if(item) {
-                                document.getElementById('modal-text').textContent = `${team.id} 小隊獲得了 ${item.name}！`;
-                                document.getElementById('modal').classList.remove('hidden');
-                            }
-                        });
-                        team.score += coords.length;
-                    }
+            
+            if(currentMode === 'remove') {
+                const cellData = mapData[r][c];
+                if(!cellData) return;
+                if(team.baseCoord && r === team.baseCoord.r && c === team.baseCoord.c) {
+                    showAlert("禁止拆除", "基地不可拆除", "🚫"); return;
                 }
+                if(cellData.type === 'stone') {
+                    showConfirm("移除石頭", "確定要移除？", "🪨", () => {
+                        mapData[r][c] = null;
+                        sync();
+                    });
+                } else if(cellData.teamId === team.id) {
+                    const tileIndex = placedTiles.findIndex(t => t.id === cellData.tileId);
+                    const tile = placedTiles[tileIndex];
+                    if(!checkConnectivityAfterRemove(team, tile)) {
+                        showAlert("禁止拆除", "會導致領土斷裂", "❌"); return;
+                    }
+                    tile.coords.forEach(pos => mapData[pos.r][pos.c] = null);
+                    placedTiles.splice(tileIndex, 1);
+                    sync();
+                }
+                return;
             }
-            sync();
-        }
 
-        function canPlace(coords, teamId) {
-            let hasAdj = false;
-            for(let p of coords) {
-                if(p.r<1 || p.r>GRID_SIZE || p.c<1 || p.c>GRID_SIZE) return false;
-                if(mapData[p.r][p.c] !== null) return false;
-                [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr, dc]) => {
-                    const nr = p.r+dr, nc = p.c+dc;
-                    if(nr>=1 && nr<=GRID_SIZE && nc>=1 && nc<=GRID_SIZE && mapData[nr][nc]?.teamId === teamId) hasAdj = true;
+            if(currentMode === 'stone') {
+                if(!mapData[r][c]) { mapData[r][c] = { type: 'stone' }; sync(); }
+                return;
+            }
+
+            if(!team.baseSelected) {
+                const isBase = BASE_LOCS.find(b => b.r === r && b.c === c);
+                if(isBase && !mapData[r][c]) {
+                    const tileId = Date.now();
+                    mapData[r][c] = { teamId: team.id, tileId };
+                    placedTiles.push({ id: tileId, teamId: team.id, shapeIdx: 0, coords: [{r, c}] });
+                    team.baseSelected = true;
+                    team.baseCoord = {r, c};
+                    sync();
+                }
+                return;
+            }
+
+            const legality = checkLegality(r, c, team);
+            if(legality.valid) {
+                const tileId = Date.now();
+                const coords = [];
+                let shouldTrigger = false;
+                currentShape.forEach(([dr, dc]) => {
+                    const nr = r + dr, nc = c + dc;
+                    mapData[nr][nc] = { teamId: team.id, tileId };
+                    coords.push({r: nr, c: nc});
+                    if(isItem(nr, nc) && !deadItems.has(`${nr},${nc}`)) {
+                        let gIdx = ITEM_GROUPS.findIndex(g => g.some(p => p.r === nr && p.c === nc));
+                        if(gIdx !== -1) {
+                            if(!triggeredGroups.has(gIdx)) { triggeredGroups.add(gIdx); shouldTrigger = true; ITEM_GROUPS[gIdx].forEach(p => deadItems.add(`${p.r},${p.c}`)); }
+                        } else { deadItems.add(`${nr},${nc}`); shouldTrigger = true; }
+                    }
                 });
+                if(shouldTrigger) triggerItem();
+                placedTiles.push({ id: tileId, teamId: team.id, shapeIdx: currentShapeIdx, coords });
+                sync();
             }
-            return hasAdj;
         }
 
-        function renderMap() {
+        function triggerItem() {
+            if(itemPool.length === 0) { showAlert("道具已抽完", "地圖上已無剩餘道具。", "📭"); return; }
+            const randIdx = Math.floor(Math.random() * itemPool.length);
+            const item = itemPool.splice(randIdx, 1)[0];
+            showAlert("獲得道具！", item, "🎁");
+        }
+
+        function showAlert(title, text, icon) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-text').textContent = text;
+            document.getElementById('modal-icon').textContent = icon;
+            document.getElementById('modal-confirm-btn').onclick = closeModal;
+            document.getElementById('modal-cancel-btn').classList.add('hidden');
+            document.getElementById('item-modal').classList.remove('hidden');
+        }
+
+        function showConfirm(title, text, icon, onConfirm) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-text').textContent = text;
+            document.getElementById('modal-icon').textContent = icon;
+            document.getElementById('modal-confirm-btn').onclick = () => { onConfirm(); closeModal(); };
+            document.getElementById('modal-cancel-btn').classList.remove('hidden');
+            document.getElementById('item-modal').classList.remove('hidden');
+        }
+
+        function closeModal() { document.getElementById('item-modal').classList.add('hidden'); }
+
+        function checkConnectivityAfterRemove(team, tileToRemove) {
+            const teamCells = [];
             for(let r=1; r<=GRID_SIZE; r++) {
                 for(let c=1; c<=GRID_SIZE; c++) {
-                    const el = document.getElementById(`cell-${r}-${c}`);
-                    const cell = mapData[r][c];
-                    el.className = 'grid-cell'; el.style.backgroundColor = ""; el.textContent = "";
-                    if(cell) {
-                        if(cell.type === 'stone') { el.classList.add('cell-stone'); el.textContent = "🪨"; }
-                        else {
-                            const t = teamInfo.find(ti => ti.id === cell.teamId);
-                            el.style.backgroundColor = t.color;
-                            if(t.baseCoord?.r === r && t.baseCoord?.c === c) el.textContent = t.id;
-                        }
-                    } else if(BASE_LOCS.find(b => b.r === r && b.c === c)) {
-                        el.classList.add('cell-base');
-                    } else if(ITEM_LOCS.find(it => it.r === r && it.c === c)) {
-                        el.classList.add('cell-item'); el.textContent = "🎁";
+                    if(mapData[r][c]?.teamId === team.id) {
+                        if(!tileToRemove.coords.some(tc => tc.r === r && tc.c === c)) teamCells.push(`${r},${c}`);
                     }
                 }
             }
+            if(teamCells.length === 0) return true;
+            const queue = [`${team.baseCoord.r},${team.baseCoord.c}`];
+            const visited = new Set(queue);
+            let count = 0;
+            while(queue.length > 0) {
+                const [currR, currC] = queue.shift().split(',').map(Number);
+                count++;
+                [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr, dc]) => {
+                    const nr = currR + dr, nc = currC + dc;
+                    const key = `${nr},${nc}`;
+                    if(teamCells.includes(key) && !visited.has(key)) { visited.add(key); queue.push(key); }
+                });
+            }
+            return count === teamCells.length;
         }
 
-        function renderScores() {
+        function drawTileBorder(coords) {
+            coords.forEach(pos => {
+                const el = document.getElementById(`c-${pos.r}-${pos.c}`);
+                if(!el) return;
+                let shadows = [];
+                const adj = [{dr:-1, dc:0, s:'top'}, {dr:1, dc:0, s:'bottom'}, {dr:0, dc:-1, s:'left'}, {dr:0, dc:1, s:'right'}];
+                adj.forEach(a => {
+                    if(!coords.find(c => c.r === pos.r + a.dr && c.c === pos.c + a.dc)) {
+                        if(a.s === 'top') shadows.push("inset 0 2px 0 0 white");
+                        if(a.s === 'bottom') shadows.push("inset 0 -2px 0 0 white");
+                        if(a.s === 'left') shadows.push("inset 2px 0 0 0 white");
+                        if(a.s === 'right') shadows.push("inset -2px 0 0 0 white");
+                    }
+                });
+                el.style.boxShadow = shadows.join(", ");
+                el.style.border = "none";
+            });
+        }
+
+        function togglePenalty(teamId, pIdx) {
+            const team = teamInfo.find(t => t.id === teamId);
+            if(team) { team.penalties[pIdx] = !team.penalties[pIdx]; sync(); }
+        }
+
+        function updateScoresDisplay() {
+            // 計算各隊分數 (邏輯沿用：正方形面積 + 種類 * 2 - 罰分)
+            teamInfo.forEach(t => {
+                let shapesInUse = new Set();
+                placedTiles.filter(pt => pt.teamId === t.id).forEach(pt => { if(pt.shapeIdx !== 0) shapesInUse.add(pt.shapeIdx); });
+                let dp = Array(GRID_SIZE+1).fill().map(() => Array(GRID_SIZE+1).fill(0));
+                let n = 0;
+                for(let r=1; r<=GRID_SIZE; r++) {
+                    for(let c=1; c<=GRID_SIZE; c++) {
+                        if(mapData[r][c]?.teamId === t.id) {
+                            dp[r][c] = Math.min(dp[r-1][c]||0, dp[r][c-1]||0, dp[r-1][c-1]||0) + 1;
+                            n = Math.max(n, dp[r][c]);
+                        }
+                    }
+                }
+                t.score = (n * n) + (shapesInUse.size * 2) - (t.penalties.filter(p=>p).length * 10);
+                t.currentN = n; t.currentTypes = shapesInUse.size;
+            });
+
+            const sortedTeams = [...teamInfo].sort((a, b) => b.score - a.score);
             const board = document.getElementById('score-board');
-            board.innerHTML = teamInfo.map(t => `<div class="flex justify-between p-1 bg-slate-800 rounded"><span>${t.id}</span><span>${t.score}分</span></div>`).join('');
+            board.innerHTML = sortedTeams.map((t, rank) => `
+                <div class="p-2 bg-slate-800 rounded border-l-4" style="border-color:${t.color}">
+                    <div class="flex justify-between font-bold text-white">
+                        <span>${rank + 1}. ● ${t.id}</span> <span>${t.score} 分</span>
+                    </div>
+                    <div class="text-[9px] text-slate-400 mt-1">
+                        正方形: ${t.currentN}² | 種類: ${t.currentTypes}
+                    </div>
+                    <div class="mt-1 flex items-center gap-2">
+                        <span class="text-[9px] text-red-400">違規扣分:</span>
+                        <input type="checkbox" ${t.penalties[0]?'checked':''} onclick="togglePenalty('${t.id}', 0)">
+                        <input type="checkbox" ${t.penalties[1]?'checked':''} onclick="togglePenalty('${t.id}', 1)">
+                    </div>
+                </div>
+            `).join('');
         }
 
-        function resetGame() { if(confirm("確定清除所有進度？")) db.ref('gameData').set(null); }
+        function resetCloudData() { if(confirm("確定重置雲端所有數據？這無法復原！")) { db.ref('gameData').set(null); location.reload(); } }
+
+        window.onkeydown = (e) => {
+            if(e.key.toLowerCase() === 'r') currentShape = currentShape.map(([r, c]) => [c, -r]);
+            if(e.key.toLowerCase() === 'f') currentShape = currentShape.map(([r, c]) => [r, -c]);
+            const h = document.querySelector('.grid-cell:hover');
+            if(h) { const [_, r, c] = h.id.split('-').map(Number); handlePreview(r, c); }
+        };
+
         init();
     </script>
 </body>
