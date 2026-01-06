@@ -2,103 +2,104 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>沙盤實況直播 - V8.1</title>
+    <title>尼可恰大王：戰場即時動態</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
-        .grid-cell { width: 22px; height: 22px; border: 0.1px solid #444; font-size: 10px; display: flex; align-items: center; justify-content: center; }
-        .cell-stone { background-color: #475569; color: white; border: 2px solid #1e293b; font-size: 14px; }
-        .cell-item { background-color: #facc15; border: 1px solid #ca8a04; color: #854d0e; }
-        #game-map { display: grid; grid-template-columns: repeat(32, 22px); background-color: #334155; padding: 4px; gap: 1px; }
+        .grid-cell { width: 22px; height: 22px; border: 0.1px solid #444; font-size: 10px; display: flex; align-items: center; justify-content: center; position: relative; }
+        .cell-base-unclaimed { background-color: #ef4444 !important; }
+        .cell-item { background-color: #facc15 !important; }
+        .cell-item-disabled { background-color: #334155 !important; border: 1px dashed #64748b !important; }
+        .cell-stone { background-color: #475569 !important; font-size: 14px; }
         .sidebar { height: 100vh; overflow-y: auto; background-color: #0f172a; color: white; }
+        #game-map { display: grid; grid-template-columns: repeat(32, 22px); background-color: #334155; padding: 4px; gap: 1px; }
     </style>
 </head>
 <body class="bg-slate-900 flex">
-    <div class="w-72 p-4 sidebar flex flex-col gap-4 shadow-2xl">
-        <h1 class="text-xl font-bold text-yellow-500 border-b border-slate-700 pb-2 text-center">🏆 即時排行榜</h1>
-        <div id="score-board" class="text-sm space-y-2"></div>
+    <div class="w-72 p-4 sidebar">
+        <h1 class="text-xl font-bold text-yellow-500 border-b border-slate-700 pb-2 mb-4">🏆 戰況排行榜</h1>
+        <div id="score-board" class="space-y-2"></div>
     </div>
-
     <div class="flex-1 flex flex-col items-center justify-center p-6">
-        <div id="status-display" class="mb-6 px-10 py-3 rounded-full bg-blue-900 text-white font-bold text-2xl shadow-xl border-2 border-blue-400">
-            企鵝村征服戰 - 實況轉播中
-        </div>
-        <div class="bg-slate-700 p-2 rounded shadow-2xl scale-110 mt-4">
+        <div class="bg-slate-700 p-2 rounded-lg shadow-2xl border-4 border-slate-600">
             <div id="game-map"></div>
         </div>
     </div>
 
     <script>
-        // --- 必須與 Admin 版相同的 Firebase 配置 ---
-        const firebaseConfig = {
+        const firebaseConfig = { 
             apiKey: "AIzaSyBBufDrt_ReM-5qLeQyJs2nXAwdMO_TbC4",
             authDomain: "sunflower-b5be6.firebaseapp.com",
-            databaseURL: "https://sunflower-b5be6-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "sunflower-b5be6",
             storageBucket: "sunflower-b5be6.firebasestorage.app",
             messagingSenderId: "206261082118",
             appId: "1:206261082118:web:77e158bd61b287056a8b87",
             measurementId: "G-T477KW8R2L"
+            databaseURL: "https://sunflower-b5be6-default-rtdb.asia-southeast1.firebasedatabase.app" 
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
+        const GRID_SIZE = 32;
+        const BASE_LOCS = [{r:4, c:4}, {r:4, c:12}, {r:4, c:21}, {r:4, c:29}, {r:12, c:4}, {r:12, c:12}, {r:12, c:21}, {r:12, c:29}, {r:21, c:4}, {r:21, c:12}, {r:21, c:21}, {r:21, c:29}, {r:29, c:4}, {r:29, c:12}, {r:29, c:21}, {r:29, c:29}];
+        const SINGLE_ITEMS = [{r:1, c:8}, {r:1, c:25}, {r:8, c:1}, {r:8, c:8}, {r:8, c:25}, {r:8, c:32}, {r:25, c:1}, {r:25, c:8}, {r:25, c:25}, {r:25, c:32}, {r:32, c:8}, {r:32, c:25}];
+        const ITEM_GROUPS = [[{r:8, c:16}, {r:8, c:17}], [{r:16, c:8}, {r:17, c:8}], [{r:16, c:16}, {r:16, c:17}, {r:17, c:16}, {r:17, c:17}], [{r:16, c:25}, {r:17, c:25}], [{r:25, c:16}, {r:25, c:17}]];
 
-        function initViewer() {
+        function init() {
             const mapEl = document.getElementById('game-map');
-            for(let r=1; r<=32; r++) {
-                for(let c=1; c<=32; c++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'grid-cell';
-                    cell.id = `v-${r}-${c}`;
-                    mapEl.appendChild(cell);
-                }
+            for(let r=1; r<=GRID_SIZE; r++) for(let c=1; c<=GRID_SIZE; c++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell'; cell.id = `c-${r}-${c}`;
+                mapEl.appendChild(cell);
             }
-
-            db.ref('gameData').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    renderMap(data);
-                    renderScores(data.teamInfo);
-                }
+            db.ref('gameData').on('value', (snap) => {
+                const val = snap.val(); if(!val) return;
+                renderMap(val);
+                renderBoard(val.teamInfo);
             });
         }
 
         function renderMap(data) {
-            const { mapData, teamInfo, deadItems } = data;
-            const deadSet = new Set(deadItems || []);
-            for(let r=1; r<=32; r++) {
-                for(let c=1; c<=32; c++) {
-                    const el = document.getElementById(`v-${r}-${c}`);
-                    const cell = mapData[r][c];
-                    el.className = 'grid-cell'; el.style = ""; el.textContent = "";
-                    if(cell) {
-                        if(cell.type === 'stone') { el.classList.add('cell-stone'); el.textContent = "🪨"; }
-                        else {
-                            const t = teamInfo.find(ti => ti.id === cell.teamId);
+            const deadItems = new Set(data.deadItems || []);
+            for(let r=1; r<=GRID_SIZE; r++) for(let c=1; c<=GRID_SIZE; c++) {
+                const el = document.getElementById(`c-${r}-${c}`);
+                const cell = data.mapData[r][c];
+                el.className = 'grid-cell'; el.style = ""; el.textContent = "";
+                if(cell) {
+                    if(cell.type === 'stone') { el.classList.add('cell-stone'); el.textContent = "🪨"; }
+                    else {
+                        const t = data.teamInfo.find(ti => ti.id === cell.teamId);
+                        if(t) {
                             el.style.backgroundColor = t.color;
                             if(t.baseCoord?.r === r && t.baseCoord?.c === c) el.textContent = t.id;
                         }
-                    } else if(deadSet.has(`${r},${c}`)) {
-                        el.style.backgroundColor = "#334155";
                     }
+                } else {
+                    if(BASE_LOCS.find(b => b.r === r && b.c === c)) el.classList.add('cell-base-unclaimed');
+                    else if(deadItems.has(`${r},${c}`)) el.classList.add('cell-item-disabled');
+                    else if(SINGLE_ITEMS.some(it => it.r === r && it.c === c) || ITEM_GROUPS.some(g => g.some(it => it.r === r && it.c === c))) el.classList.add('cell-item');
                 }
             }
+            (data.placedTiles || []).forEach(t => {
+                t.coords.forEach(p => {
+                    const el = document.getElementById(`c-${p.r}-${p.c}`);
+                    let s = [];
+                    [{dr:-1,dc:0,b:'top'},{dr:1,dc:0,b:'bottom'},{dr:0,dc:-1,b:'left'},{dr:0,dc:1,b:'right'}].forEach(a => {
+                        if(!t.coords.find(c => c.r === p.r+a.dr && c.c === p.c+a.dc)) s.push(`inset ${a.b==='left'?'2px':a.b==='right'?'-2px':'0'} ${a.b==='top'?'2px':a.b==='bottom'?'-2px':'0'} 0 0 white`);
+                    });
+                    el.style.boxShadow = s.join(","); el.style.border = "none";
+                });
+            });
         }
 
-        function renderScores(teams) {
-            const board = document.getElementById('score-board');
-            const sorted = [...teams].sort((a,b) => b.score - a.score);
-            board.innerHTML = sorted.map((t, i) => `
-                <div class="p-3 bg-slate-800 rounded border-l-4" style="border-color:${t.color}">
-                    <div class="flex justify-between font-bold">
-                        <span>${i+1}. ${t.id}</span> <span>${t.score} 分</span>
-                    </div>
-                </div>
-            `).join('');
+        function renderBoard(teams) {
+            document.getElementById('score-board').innerHTML = [...teams].sort((a,b)=>b.score-a.score).map((t, r) => `
+                <div class="p-3 bg-slate-800 rounded border-l-4 shadow" style="border-color:${t.color}">
+                    <div class="flex justify-between font-bold text-white text-lg"><span>${r+1}. ${t.id}</span><span>${t.score}</span></div>
+                    <div class="text-xs text-slate-400 mt-1">最高正方形: ${t.currentN}² | 板塊種類: ${t.currentTypes}</div>
+                </div>`).join('');
         }
-
-        initViewer();
+        init();
     </script>
 </body>
 </html>
