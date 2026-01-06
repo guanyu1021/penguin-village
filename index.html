@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>沙盤實況 - 檢視頁面</title>
+    <title>沙盤實況直播 - V8.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
@@ -11,22 +11,26 @@
         .cell-stone { background-color: #475569; color: white; border: 2px solid #1e293b; font-size: 14px; }
         .cell-item { background-color: #facc15; border: 1px solid #ca8a04; color: #854d0e; }
         #game-map { display: grid; grid-template-columns: repeat(32, 22px); background-color: #334155; padding: 4px; gap: 1px; }
+        .sidebar { height: 100vh; overflow-y: auto; background-color: #0f172a; color: white; }
     </style>
 </head>
-<body class="bg-slate-900 flex h-screen overflow-hidden">
-    <div class="w-64 bg-slate-800 p-4 text-white overflow-y-auto shadow-2xl">
-        <h1 class="text-xl font-bold text-yellow-400 mb-4 text-center">🏆 即時排行榜</h1>
-        <div id="score-board" class="space-y-2"></div>
+<body class="bg-slate-900 flex">
+    <div class="w-72 p-4 sidebar flex flex-col gap-4 shadow-2xl">
+        <h1 class="text-xl font-bold text-yellow-500 border-b border-slate-700 pb-2 text-center">🏆 即時排行榜</h1>
+        <div id="score-board" class="text-sm space-y-2"></div>
     </div>
-    <div class="flex-1 flex flex-col items-center justify-center">
-        <div class="bg-blue-900 px-8 py-4 rounded-full text-white font-bold text-2xl mb-6 shadow-lg border-2 border-blue-400">
+
+    <div class="flex-1 flex flex-col items-center justify-center p-6">
+        <div id="status-display" class="mb-6 px-10 py-3 rounded-full bg-blue-900 text-white font-bold text-2xl shadow-xl border-2 border-blue-400">
             企鵝村征服戰 - 實況轉播中
         </div>
-        <div id="game-map" class="scale-110"></div>
+        <div class="bg-slate-700 p-2 rounded shadow-2xl scale-110 mt-4">
+            <div id="game-map"></div>
+        </div>
     </div>
 
     <script>
-        // === ⚠️ 請在此填入與 ADMIN 相同的 FIREBASE CONFIG ===
+        // --- 必須與 Admin 版相同的 Firebase 配置 ---
         const firebaseConfig = {
             apiKey: "AIzaSyBBufDrt_ReM-5qLeQyJs2nXAwdMO_TbC4",
             authDomain: "sunflower-b5be6.firebaseapp.com",
@@ -36,12 +40,10 @@
             appId: "1:206261082118:web:77e158bd61b287056a8b87",
             measurementId: "G-T477KW8R2L"
         };
-        // ===============================================
-
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        function init() {
+        function initViewer() {
             const mapEl = document.getElementById('game-map');
             for(let r=1; r<=32; r++) {
                 for(let c=1; c<=32; c++) {
@@ -54,37 +56,48 @@
 
             db.ref('gameData').on('value', (snapshot) => {
                 const data = snapshot.val();
-                if (data) render(data);
+                if (data) {
+                    renderMap(data);
+                    renderScores(data.teamInfo);
+                }
             });
         }
 
-        function render(data) {
-            const { mapData, teamInfo } = data;
-            // 渲染地圖
+        function renderMap(data) {
+            const { mapData, teamInfo, deadItems } = data;
+            const deadSet = new Set(deadItems || []);
             for(let r=1; r<=32; r++) {
                 for(let c=1; c<=32; c++) {
                     const el = document.getElementById(`v-${r}-${c}`);
                     const cell = mapData[r][c];
-                    el.className = 'grid-cell'; el.style.backgroundColor = ""; el.textContent = "";
+                    el.className = 'grid-cell'; el.style = ""; el.textContent = "";
                     if(cell) {
                         if(cell.type === 'stone') { el.classList.add('cell-stone'); el.textContent = "🪨"; }
                         else {
                             const t = teamInfo.find(ti => ti.id === cell.teamId);
                             el.style.backgroundColor = t.color;
+                            if(t.baseCoord?.r === r && t.baseCoord?.c === c) el.textContent = t.id;
                         }
+                    } else if(deadSet.has(`${r},${c}`)) {
+                        el.style.backgroundColor = "#334155";
                     }
                 }
             }
-            // 渲染排行榜 (依分數排序)
-            const sorted = [...teamInfo].sort((a,b) => b.score - a.score);
-            document.getElementById('score-board').innerHTML = sorted.map((t, i) => `
-                <div class="flex justify-between items-center p-2 bg-slate-700 rounded border-l-4" style="border-color:${t.color}">
-                    <span class="text-sm font-bold">${i+1}. ${t.id}</span>
-                    <span class="text-lg">${t.score}</span>
+        }
+
+        function renderScores(teams) {
+            const board = document.getElementById('score-board');
+            const sorted = [...teams].sort((a,b) => b.score - a.score);
+            board.innerHTML = sorted.map((t, i) => `
+                <div class="p-3 bg-slate-800 rounded border-l-4" style="border-color:${t.color}">
+                    <div class="flex justify-between font-bold">
+                        <span>${i+1}. ${t.id}</span> <span>${t.score} 分</span>
+                    </div>
                 </div>
             `).join('');
         }
-        init();
+
+        initViewer();
     </script>
 </body>
 </html>
