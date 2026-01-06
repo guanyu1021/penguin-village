@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>尼可恰大王：沙盤征服戰 V8.1 - 管理者後台</title>
+    <title>尼可恰大王：管理者後台 V8.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
@@ -58,24 +58,21 @@
             <span id="modal-icon" class="text-4xl">🎁</span>
             <h3 id="modal-title" class="text-2xl font-bold mt-2">提示</h3>
             <p id="modal-text" class="text-lg my-4 text-slate-600 font-bold"></p>
-            <div id="modal-footer" class="flex justify-center gap-4">
-                <button id="modal-confirm-btn" onclick="closeModal()" class="bg-blue-600 text-white px-8 py-2 rounded-lg font-bold">確認</button>
-                <button id="modal-cancel-btn" onclick="closeModal()" class="bg-slate-400 text-white px-8 py-2 rounded-lg font-bold hidden">取消</button>
-            </div>
+            <button onclick="closeModal()" class="bg-blue-600 text-white px-8 py-2 rounded-lg font-bold">確認</button>
         </div>
     </div>
 
     <script>
-        // === 請填入你的配置 ===
+        // Firebase 配置
         const firebaseConfig = {
             apiKey: "AIzaSyBBufDrt_ReM-5qLeQyJs2nXAwdMO_TbC4",
             authDomain: "sunflower-b5be6.firebaseapp.com",
-            databaseURL: "https://sunflower-b5be6-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "sunflower-b5be6",
             storageBucket: "sunflower-b5be6.firebasestorage.app",
             messagingSenderId: "206261082118",
             appId: "1:206261082118:web:77e158bd61b287056a8b87",
             measurementId: "G-T477KW8R2L"
+            databaseURL: "https://sunflower-b5be6-default-rtdb.asia-southeast1.firebasedatabase.app"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
@@ -92,11 +89,11 @@
         let placedTiles = [];
         let deadItems = new Set();
         let triggeredGroups = new Set();
-        let itemPool = ["石頭", "石頭", "石頭", "拆除卡", "拆除卡", "搶奪卡", "搶奪卡", "防禦卡", "防禦卡", "防禦卡", "干擾卡", "干擾卡", "干擾卡", "雙倍卡", "雙倍卡", "雙倍卡", "加分卡"];
         let currentTeamIdx = 0;
         let currentShapeIdx = 1;
         let currentShape = TILE_DEFS[1];
         let currentMode = 'place';
+        let itemPool = ["石頭", "石頭", "石頭", "拆除卡", "拆除卡", "搶奪卡", "搶奪卡", "防禦卡", "防禦卡", "防禦卡", "干擾卡", "干擾卡", "干擾卡", "雙倍卡", "雙倍卡", "雙倍卡", "加分卡"];
 
         function sync() {
             db.ref('gameData').set({
@@ -107,7 +104,6 @@
         }
 
         function init() {
-            // 初始化隊伍
             const select = document.getElementById('team-select');
             for(let i=0; i<16; i++) {
                 const id = `${Math.floor(i/2)+1}${i%2===0?'A':'B'}`;
@@ -117,7 +113,6 @@
                 select.appendChild(opt);
             }
 
-            // 建立地圖
             const mapEl = document.getElementById('game-map');
             for(let r=1; r<=GRID_SIZE; r++) {
                 for(let c=1; c<=GRID_SIZE; c++) {
@@ -125,14 +120,12 @@
                     cell.className = 'grid-cell';
                     cell.id = `c-${r}-${c}`;
                     cell.onmouseenter = () => handlePreview(r, c);
-                    cell.onmouseleave = () => resetStatusDisplay();
                     cell.onclick = () => handleClick(r, c);
                     mapEl.appendChild(cell);
                     refreshCellDisplay(r, c, cell);
                 }
             }
 
-            // 板塊調色盤
             const palette = document.getElementById('tile-palette');
             Object.keys(TILE_DEFS).forEach(k => {
                 const b = document.createElement('button');
@@ -142,9 +135,8 @@
                 palette.appendChild(b);
             });
 
-            // 數據監聽
-            db.ref('gameData').on('value', (snapshot) => {
-                const val = snapshot.val();
+            db.ref('gameData').on('value', (snap) => {
+                const val = snap.val();
                 if(val) {
                     mapData = val.mapData;
                     teamInfo = val.teamInfo;
@@ -160,18 +152,14 @@
         }
 
         function refreshFullMap() {
-            for(let r=1; r<=GRID_SIZE; r++) {
-                for(let c=1; c<=GRID_SIZE; c++) refreshCellDisplay(r, c);
-            }
+            for(let r=1; r<=GRID_SIZE; r++) for(let c=1; c<=GRID_SIZE; c++) refreshCellDisplay(r, c);
             placedTiles.forEach(t => drawTileBorder(t.coords));
         }
 
         function refreshCellDisplay(r, c, el = null) {
             if(!el) el = document.getElementById(`c-${r}-${c}`);
             if(!el) return;
-            el.className = 'grid-cell';
-            el.style = ""; el.textContent = "";
-            
+            el.className = 'grid-cell'; el.style = ""; el.textContent = "";
             const cell = mapData[r][c];
             if(cell) {
                 if(cell.type === 'stone') { el.classList.add('cell-stone'); el.textContent = "🪨"; }
@@ -191,13 +179,18 @@
 
         function isItem(r, c) {
             if(SINGLE_ITEMS.some(it => it.r === r && it.c === c)) return true;
-            for(let group of ITEM_GROUPS) if(group.some(it => it.r === r && it.c === c)) return true;
+            for(let g of ITEM_GROUPS) if(g.some(it => it.r === r && it.c === c)) return true;
             return false;
         }
 
-        function changeTeam(val) { currentTeamIdx = parseInt(val); resetStatusDisplay(); }
-        function setMode(mode) { currentMode = mode; document.querySelectorAll('[id^="mode-"]').forEach(b => b.classList.replace('bg-blue-600', 'bg-slate-600')); document.getElementById(`mode-${mode}`).classList.replace('bg-slate-600', 'bg-blue-600'); }
-        function resetStatusDisplay() { document.getElementById('status-display').textContent = `操作中：${teamInfo[currentTeamIdx].id} 小隊 ${!teamInfo[currentTeamIdx].baseSelected ? '(請選基地)' : ''}`; }
+        function setMode(mode) { 
+            currentMode = mode; 
+            document.querySelectorAll('[id^="mode-"]').forEach(b => b.className = 'py-2 rounded font-bold bg-slate-600 text-white text-sm');
+            document.getElementById(`mode-${mode}`).className = 'py-2 rounded font-bold bg-blue-600 text-white text-sm';
+        }
+
+        function changeTeam(v) { currentTeamIdx = parseInt(v); resetStatusDisplay(); }
+        function resetStatusDisplay() { document.getElementById('status-display').textContent = `操作：${teamInfo[currentTeamIdx].id} ${!teamInfo[currentTeamIdx].baseSelected ? '(選基地)' : ''}`; }
 
         function handlePreview(r, c) {
             document.querySelectorAll('.grid-cell').forEach(el => el.classList.remove('preview-valid', 'preview-invalid', 'preview-remove'));
@@ -210,37 +203,32 @@
                 }
                 return;
             }
-            if(currentMode === 'stone') { document.getElementById(`c-${r}-${c}`).classList.add(!mapData[r][c] ? 'preview-valid' : 'preview-invalid'); return; }
-            
-            const legality = checkLegality(r, c, team);
+            const leg = checkLegality(r, c, team);
             currentShape.forEach(([dr, dc]) => {
                 const nr = r + dr, nc = c + dc;
-                if(nr>=1 && nr<=GRID_SIZE && nc>=1 && nc<=GRID_SIZE) document.getElementById(`c-${nr}-${nc}`).classList.add(legality.valid ? 'preview-valid' : 'preview-invalid');
+                if(nr>=1 && nr<=GRID_SIZE && nc>=1 && nc<=GRID_SIZE) document.getElementById(`c-${nr}-${nc}`).classList.add(leg.valid ? 'preview-valid' : 'preview-invalid');
             });
         }
 
         function checkLegality(r, c, team) {
-            if(!team.baseSelected) return (BASE_LOCS.find(b => b.r === r && b.c === c) && !mapData[r][c]) ? {valid:true, msg:""} : {valid:false, msg:""};
+            if(!team.baseSelected) return (BASE_LOCS.find(b => b.r === r && b.c === c) && !mapData[r][c]) ? {valid:true} : {valid:false};
             let hasConnect = false;
             for(let [dr, dc] of currentShape) {
                 const nr = r + dr, nc = c + dc;
-                if(nr<1 || nr>GRID_SIZE || nc<1 || nc>GRID_SIZE || mapData[nr][nc]) return {valid:false, msg:""};
+                if(nr<1 || nr>GRID_SIZE || nc<1 || nc>GRID_SIZE || mapData[nr][nc]) return {valid:false};
                 [[0,1],[0,-1],[1,0],[-1,0]].forEach(([ar, ac]) => {
-                    const neighbor = mapData[nr+ar]?.[nc+ac];
-                    if(neighbor && neighbor.type !== 'stone') {
-                        if(neighbor.teamId === team.id) hasConnect = true;
-                    }
+                    if(mapData[nr+ar]?.[nc+ac]?.teamId === team.id) hasConnect = true;
                 });
             }
-            // 檢查是否鄰接到他隊
+            // 他隊相鄰檢查
             for(let [dr, dc] of currentShape) {
                 const nr = r + dr, nc = c + dc;
                 for(let [ar, ac] of [[0,1],[0,-1],[1,0],[-1,0]]) {
-                    const neighbor = mapData[nr+ar]?.[nc+ac];
-                    if(neighbor && neighbor.type !== 'stone' && neighbor.teamId !== team.id) return {valid:false, msg:""};
+                    const n = mapData[nr+ar]?.[nc+ac];
+                    if(n && n.type !== 'stone' && n.teamId !== team.id) return {valid:false};
                 }
             }
-            return hasConnect ? {valid:true, msg:""} : {valid:false, msg:""};
+            return hasConnect ? {valid:true} : {valid:false};
         }
 
         function handleClick(r, c) {
@@ -250,11 +238,10 @@
                 if(!cell || (team.baseCoord?.r === r && team.baseCoord?.c === c)) return;
                 if(cell.type === 'stone') { mapData[r][c] = null; sync(); }
                 else if(cell.teamId === team.id) {
-                    const tileIdx = placedTiles.findIndex(t => t.id === cell.tileId);
-                    if(checkConnectivityAfterRemove(team, placedTiles[tileIdx])) {
-                        placedTiles[tileIdx].coords.forEach(p => mapData[p.r][p.c] = null);
-                        placedTiles.splice(tileIdx, 1);
-                        sync();
+                    const idx = placedTiles.findIndex(t => t.id === cell.tileId);
+                    if(checkConnectivityAfterRemove(team, placedTiles[idx])) {
+                        placedTiles[idx].coords.forEach(p => mapData[p.r][p.c] = null);
+                        placedTiles.splice(idx, 1); sync();
                     }
                 }
                 return;
@@ -264,44 +251,38 @@
                 if(BASE_LOCS.find(b => b.r === r && b.c === c) && !mapData[r][c]) {
                     const tid = Date.now(); mapData[r][c] = {teamId: team.id, tileId: tid};
                     team.baseSelected = true; team.baseCoord = {r, c};
-                    placedTiles.push({id: tid, teamId: team.id, shapeIdx: 0, coords: [{r,c}]});
-                    sync();
+                    placedTiles.push({id: tid, teamId: team.id, shapeIdx: 0, coords: [{r,c}]}); sync();
                 }
                 return;
             }
-            const leg = checkLegality(r, c, team);
-            if(leg.valid) {
-                const tid = Date.now(); const coords = []; let itemHit = false;
+            if(checkLegality(r, c, team).valid) {
+                const tid = Date.now(); const coords = []; let hit = false;
                 currentShape.forEach(([dr, dc]) => {
-                    const nr = r + dr, nc = c + dc;
-                    mapData[nr][nc] = {teamId: team.id, tileId: tid};
-                    coords.push({r: nr, c: nc});
+                    const nr = r+dr, nc = c+dc; mapData[nr][nc] = {teamId: team.id, tileId: tid}; coords.push({r:nr, c:nc});
                     if(isItem(nr, nc) && !deadItems.has(`${nr},${nc}`)) {
                         let gIdx = ITEM_GROUPS.findIndex(g => g.some(p => p.r === nr && p.c === nc));
-                        if(gIdx !== -1) { if(!triggeredGroups.has(gIdx)) { triggeredGroups.add(gIdx); itemHit = true; ITEM_GROUPS[gIdx].forEach(p => deadItems.add(`${p.r},${p.c}`)); } }
-                        else { deadItems.add(`${nr},${nc}`); itemHit = true; }
+                        if(gIdx !== -1) { if(!triggeredGroups.has(gIdx)) { triggeredGroups.add(gIdx); hit = true; ITEM_GROUPS[gIdx].forEach(p => deadItems.add(`${p.r},${p.c}`)); } }
+                        else { deadItems.add(`${nr},${nc}`); hit = true; }
                     }
                 });
-                placedTiles.push({id: tid, teamId: team.id, shapeIdx: currentShapeIdx, coords});
-                if(itemHit) triggerItem();
-                sync();
+                placedTiles.push({id:tid, teamId:team.id, shapeIdx:currentShapeIdx, coords});
+                if(hit) triggerItem(); sync();
             }
         }
 
-        function triggerItem() { if(itemPool.length) { const item = itemPool.splice(Math.floor(Math.random()*itemPool.length),1)[0]; showAlert("獲得道具！", item, "🎁"); } }
+        function triggerItem() { if(itemPool.length) { const it = itemPool.splice(Math.floor(Math.random()*itemPool.length),1)[0]; showAlert("獲得道具", it, "🎁"); } }
         function showAlert(t, tx, i) { document.getElementById('modal-title').textContent = t; document.getElementById('modal-text').textContent = tx; document.getElementById('modal-icon').textContent = i; document.getElementById('item-modal').classList.remove('hidden'); }
         function closeModal() { document.getElementById('item-modal').classList.add('hidden'); }
-
-        function checkConnectivityAfterRemove(team, tileToRemove) {
+        
+        function checkConnectivityAfterRemove(team, tile) {
             const teamCells = [];
-            for(let r=1; r<=GRID_SIZE; r++) for(let c=1; c<=GRID_SIZE; c++) if(mapData[r][c]?.teamId === team.id && !tileToRemove.coords.some(p => p.r === r && p.c === c)) teamCells.push(`${r},${c}`);
+            for(let r=1; r<=GRID_SIZE; r++) for(let c=1; c<=GRID_SIZE; c++) if(mapData[r][c]?.teamId === team.id && !tile.coords.some(p => p.r === r && p.c === c)) teamCells.push(`${r},${c}`);
             if(!teamCells.length) return true;
             const q = [`${team.baseCoord.r},${team.baseCoord.c}`], vis = new Set(q);
             while(q.length) {
                 const [cr, cc] = q.shift().split(',').map(Number);
                 [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr, dc]) => {
-                    const key = `${cr+dr},${cc+dc}`;
-                    if(teamCells.includes(key) && !vis.has(key)) { vis.add(key); q.push(key); }
+                    const k = `${cr+dr},${cc+dc}`; if(teamCells.includes(k) && !vis.has(k)) { vis.add(k); q.push(k); }
                 });
             }
             return vis.size === teamCells.length;
@@ -318,7 +299,7 @@
             });
         }
 
-        function togglePenalty(tid, idx) { const t = teamInfo.find(ti => ti.id === tid); if(t) { t.penalties[idx] = !t.penalties[idx]; sync(); } }
+        function togglePenalty(id, idx) { const t = teamInfo.find(ti => ti.id === id); if(t) { t.penalties[idx] = !t.penalties[idx]; sync(); } }
 
         function updateScoresDisplay() {
             teamInfo.forEach(t => {
@@ -334,11 +315,10 @@
                     <div class="flex justify-between font-bold text-white"><span>${r+1}. ${t.id}</span><span>${t.score}分</span></div>
                     <div class="text-[9px] text-slate-400">正方形: ${t.currentN}² | 種類: ${t.currentTypes}</div>
                     <div class="mt-1 flex gap-1"><input type="checkbox" ${t.penalties[0]?'checked':''} onclick="togglePenalty('${t.id}',0)"><input type="checkbox" ${t.penalties[1]?'checked':''} onclick="togglePenalty('${t.id}',1)"></div>
-                </div>
-            `).join('');
+                </div>`).join('');
         }
 
-        function resetCloudData() { if(confirm("確定重置雲端？")) { db.ref('gameData').set(null); location.reload(); } }
+        function resetCloudData() { if(confirm("確定重置？")) { db.ref('gameData').set(null); location.reload(); } }
         window.onkeydown = (e) => {
             if(e.key.toLowerCase()==='r') currentShape = currentShape.map(([r,c])=>[c,-r]);
             if(e.key.toLowerCase()==='f') currentShape = currentShape.map(([r,c])=>[r,-c]);
