@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>管理者 - 尼可恰大王：沙盤征服戰 V8.3</title>
+    <title>管理者 - 尼可恰大王：沙盤征服戰 V8.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -17,19 +17,22 @@
         .preview-remove { background-color: rgba(255, 255, 255, 0.5) !important; outline: 2px solid white; }
         .sidebar { height: 100vh; overflow-y: auto; background-color: #1e293b; color: white; }
         #game-map { display: grid; grid-template-columns: repeat(32, 22px); background-color: #334155; padding: 4px; gap: 1px; }
+        
         @keyframes slot-glow {
             0% { transform: scale(1); box-shadow: 0 0 0px #facc15; }
             50% { transform: scale(1.1); box-shadow: 0 0 20px #facc15; }
             100% { transform: scale(1); box-shadow: 0 0 0px #facc15; }
         }
         .slot-active { animation: slot-glow 0.2s infinite; color: #facc15; }
-        .btn-adj { @apply px-2 bg-slate-600 hover:bg-slate-500 rounded text-white font-bold transition-colors; }
+        
+        /* 修正標題與地圖疊加 */
+        .main-content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 2rem; overflow-auto; }
     </style>
 </head>
 <body class="bg-slate-900 flex">
 
-    <div class="w-80 p-4 sidebar flex flex-col gap-4">
-        <h1 class="text-xl font-bold text-red-400 border-b border-slate-600 pb-2">管理者系統 V8.3</h1>
+    <div class="w-80 p-4 sidebar flex flex-col gap-4 shrink-0 shadow-2xl">
+        <h1 class="text-xl font-bold text-red-400 border-b border-slate-600 pb-2">管理者系統 V8.4</h1>
         
         <div>
             <label class="block text-sm mb-1 text-slate-400">控制小分隊</label>
@@ -66,12 +69,12 @@
         <button onclick="resetGame()" class="mt-4 py-2 bg-red-900 hover:bg-red-800 text-white rounded text-xs">重置全場數據</button>
     </div>
 
-    <div class="flex-1 flex flex-col items-center justify-start p-6 overflow-auto">
-        <div id="status-display" class="mb-4 px-6 py-2 rounded-full bg-slate-800 text-white font-bold text-lg shadow-lg min-w-[300px] text-center">載入中...</div>
-        <div class="bg-slate-700 p-2 rounded shadow-2xl">
+    <div class="main-content">
+        <div id="status-display" class="mb-8 px-6 py-3 rounded-full bg-slate-800 text-white font-bold text-xl shadow-lg border-2 border-slate-600 min-w-[350px] text-center">載入中...</div>
+        <div class="bg-slate-700 p-2 rounded shadow-2xl scale-110 origin-top">
             <div id="game-map"></div>
         </div>
-    </div>
+        <div class="h-20"></div> </div>
 
     <div id="item-modal" class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center backdrop-blur-sm">
         <div class="bg-slate-800 border-4 border-yellow-500 p-8 rounded-3xl text-center max-w-sm w-full shadow-lg">
@@ -88,6 +91,7 @@
     </div>
 
     <script>
+        // Firebase 配置 (保持不變)
         const firebaseConfig = {
             apiKey: "AIzaSyBBufDrt_ReM-5qLeQyJs2nXAwdMO_TbC4",
             authDomain: "sunflower-b5be6.firebaseapp.com",
@@ -128,14 +132,8 @@
                 b.onclick = () => { currentShapeIdx = parseInt(k); currentShape = TILE_DEFS[k]; setMode('place'); };
                 palette.appendChild(b);
             });
-            db.ref('sandtable').on('value', (snapshot) => {
-                const val = snapshot.val();
-                if (val) {
-                    gameState = val;
-                    if(!gameState.mapData) gameState.mapData = {};
-                    renderAll();
-                } else { resetGame(); }
-            });
+
+            // 初始化地圖格子 (保持 c- 開頭以供管理者點擊)
             const mapEl = document.getElementById('game-map');
             for(let r=1; r<=GRID_SIZE; r++) {
                 for(let c=1; c<=GRID_SIZE; c++) {
@@ -147,9 +145,19 @@
                     mapEl.appendChild(cell);
                 }
             }
+
+            db.ref('sandtable').on('value', (snapshot) => {
+                const val = snapshot.val();
+                if (val) {
+                    gameState = val;
+                    if(!gameState.mapData) gameState.mapData = {};
+                    renderAll();
+                } else { resetGame(); }
+            });
         }
 
         function resetGame() {
+            if(!confirm("確定要清除所有數據嗎？")) return;
             const teams = [];
             for(let i=0; i<16; i++) {
                 const id = `${Math.floor(i/2)+1}${i%2===0?'A':'B'}`;
@@ -181,7 +189,7 @@
                         }
                     } else {
                         if(BASE_LOCS.find(b => b.r === r && b.c === c)) el.classList.add('cell-base-unclaimed');
-                        else if(gameState.deadItems.includes(`${r},${c}`)) el.classList.add('cell-item-disabled');
+                        else if(gameState.deadItems?.includes(`${r},${c}`)) el.classList.add('cell-item-disabled');
                         else if(isItem(r, c)) el.classList.add('cell-item');
                     }
                 }
@@ -235,7 +243,6 @@
             let cellsToPlace = [];
             for(let [dr, dc] of currentShape) {
                 const nr = r + dr, nc = c + dc;
-                // 修正：檢查座標是否在地圖範圍內
                 if(nr < 1 || nr > GRID_SIZE || nc < 1 || nc > GRID_SIZE) return {valid: false};
                 if(gameState.mapData[`${nr}-${nc}`]) return {valid: false};
                 cellsToPlace.push({r: nr, c: nc});
@@ -243,12 +250,11 @@
             for(let pos of cellsToPlace) {
                 for(let [ar, ac] of [[0,1],[0,-1],[1,0],[-1,0]]) {
                     const nr = pos.r + ar, nc = pos.c + ac;
-                    // 修正：檢查鄰居座標是否在地圖範圍內
                     if (nr >= 1 && nr <= GRID_SIZE && nc >= 1 && nc <= GRID_SIZE) {
                         const neighbor = gameState.mapData[`${nr}-${nc}`];
                         if(neighbor && neighbor.type !== 'stone') {
                             if(neighbor.teamId === team.id) hasConnect = true;
-                            else return {valid: false}; // 鄰接敵軍
+                            else return {valid: false}; 
                         }
                     }
                 }
@@ -284,14 +290,21 @@
                         const nr = r + dr, nc = c + dc;
                         gameState.mapData[`${nr}-${nc}`] = { teamId: team.id, tileId };
                         coords.push({r: nr, c: nc});
-                        if(isItem(nr, nc) && !gameState.deadItems.includes(`${nr},${nc}`)) {
+                        if(isItem(nr, nc) && !gameState.deadItems?.includes(`${nr},${nc}`)) {
                             let gIdx = ITEM_GROUPS.findIndex(g => g.some(p => p.r === nr && p.c === nc));
                             if(gIdx !== -1) {
-                                if(!gameState.triggeredGroups.includes(gIdx)) {
+                                if(!gameState.triggeredGroups?.includes(gIdx)) {
+                                    if(!gameState.triggeredGroups) gameState.triggeredGroups = [];
                                     gameState.triggeredGroups.push(gIdx); tCount++;
-                                    ITEM_GROUPS[gIdx].forEach(p => gameState.deadItems.push(`${p.r},${p.c}`));
+                                    ITEM_GROUPS[gIdx].forEach(p => {
+                                        if(!gameState.deadItems) gameState.deadItems = [];
+                                        gameState.deadItems.push(`${p.r},${p.c}`);
+                                    });
                                 }
-                            } else { gameState.deadItems.push(`${nr},${nc}`); tCount++; }
+                            } else { 
+                                if(!gameState.deadItems) gameState.deadItems = [];
+                                gameState.deadItems.push(`${nr},${nc}`); tCount++; 
+                            }
                         }
                     });
                     gameState.placedTiles.push({ id: tileId, teamId: team.id, shapeIdx: currentShapeIdx, coords });
@@ -325,12 +338,14 @@
                     document.getElementById('modal-confirm-btn').classList.remove('hidden');
                     document.getElementById('start-draw-btn').classList.add('hidden');
                     db.ref('sandtable/itemPool').set(gameState.itemPool);
+                    db.ref('sandtable/teamInfo').set(gameState.teamInfo);
                 }
             }, 50);
         }
 
-        function closeModal() { document.getElementById('item-modal').classList.add('hidden'); }
+        function closeModal() { document.getElementById('item-modal').classList.add('hidden'); document.getElementById('modal-text').textContent = "準備好抽獎了嗎？"; }
 
+        // --- 分數計算邏輯與檢視者頁面保持 100% 同步 ---
         function updateScores() {
             gameState.teamInfo.forEach(t => {
                 let types = new Set();
@@ -344,7 +359,7 @@
                         }
                     }
                 }
-                t.score = (n * n) + (types.size * 2) - (t.penalties.filter(p=>p).length * 10) + (t.bonusScore || 0);
+                t.score = (n * n) + (types.size * 2) - (t.penalties?.filter(p=>p).length * 10 || 0) + (t.bonusScore || 0);
             });
             const board = document.getElementById('score-board'); board.innerHTML = '';
             [...gameState.teamInfo].sort((a,b)=>b.score - a.score).forEach((t, i) => {
@@ -352,9 +367,9 @@
                 d.className = 'p-2 bg-slate-800 rounded border-l-4'; d.style.borderColor = t.color;
                 d.innerHTML = `<div class="flex justify-between font-bold text-white"><span>${i+1}. ${t.id}</span> <span>${t.score}</span></div>
                     <div class="mt-1 flex justify-between text-[10px]">
-                        <button onclick="adjBonus('${t.id}', 1)" class="bg-slate-600 px-1 rounded">加分</button>
-                        <button onclick="adjBonus('${t.id}', -1)" class="bg-slate-600 px-1 rounded">扣分</button>
-                        <span>道具: ${t.bonusScore||0}</span>
+                        <button onclick="adjBonus('${t.id}', 1)" class="bg-slate-600 px-2 rounded hover:bg-slate-500 text-white font-bold">+1</button>
+                        <button onclick="adjBonus('${t.id}', -1)" class="bg-slate-600 px-2 rounded hover:bg-slate-500 text-white font-bold">-1</button>
+                        <span class="text-slate-400">額外: ${t.bonusScore||0}</span>
                     </div>`;
                 board.appendChild(d);
             });
@@ -384,14 +399,14 @@
         }
 
         function updateItemInventory() {
-            const counts = {}; gameState.itemPool.forEach(i => counts[i] = (counts[i]||0)+1);
+            const counts = {}; gameState.itemPool?.forEach(i => counts[i] = (counts[i]||0)+1);
             const container = document.getElementById('item-inventory'); container.innerHTML = '';
             Object.keys(ITEM_ICONS).forEach(i => {
                 const div = document.createElement('div'); div.className = 'flex justify-between';
                 div.innerHTML = `<span>${ITEM_ICONS[i]} ${i}</span> <span>${counts[i]||0}</span>`;
                 container.appendChild(div);
             });
-            document.getElementById('total-items-count').textContent = gameState.itemPool.length;
+            document.getElementById('total-items-count').textContent = gameState.itemPool?.length || 0;
         }
 
         function resetStatusDisplay() { document.getElementById('status-display').textContent = `當前：${gameState.teamInfo[currentTeamIdx].id} 小隊`; }
