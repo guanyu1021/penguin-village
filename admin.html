@@ -15,7 +15,10 @@
         .preview-valid { background-color: rgba(34, 197, 94, 0.6) !important; }
         .preview-invalid { background-color: rgba(239, 68, 68, 0.6) !important; }
         .preview-remove { background-color: rgba(255, 255, 255, 0.5) !important; outline: 2px solid white; }
+        
+        /* 修改側邊欄：固定高度並獨立捲動 */
         .sidebar { height: 100vh; overflow-y: auto; background-color: #1e293b; color: white; }
+        
         #game-map { display: grid; grid-template-columns: repeat(32, 22px); background-color: #334155; padding: 4px; gap: 1px; }
         
         .base-text { 
@@ -27,10 +30,12 @@
 
         @keyframes slot-glow { 0% { transform: scale(1); box-shadow: 0 0 0px #facc15; } 50% { transform: scale(1.1); box-shadow: 0 0 20px #facc15; } 100% { transform: scale(1); box-shadow: 0 0 0px #facc15; } }
         .slot-active { animation: slot-glow 0.2s infinite; color: #facc15; }
-        .main-content { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 2rem; overflow: auto; }
+        
+        /* 修改主要內容區：讓地圖區塊獨立滑動 */
+        .main-content { flex: 1; height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 2rem; overflow-y: auto; }
     </style>
 </head>
-<body class="bg-slate-900 flex">
+<body class="bg-slate-900 flex h-screen overflow-hidden">
 
     <div class="w-80 p-4 sidebar flex flex-col gap-4 shrink-0 shadow-2xl">
         <h1 class="text-xl font-bold text-red-400 border-b border-slate-600 pb-2">管理者系統 V8.5</h1>
@@ -72,7 +77,7 @@
 
     <div class="main-content">
         <div id="status-display" class="mb-8 px-6 py-3 rounded-full bg-slate-800 text-white font-bold text-xl shadow-lg border-2 border-slate-600 min-w-[350px] text-center">正在連線至資料庫...</div>
-        <div class="bg-slate-700 p-2 rounded shadow-2xl scale-110 origin-top">
+        <div class="bg-slate-700 p-2 rounded shadow-2xl scale-110 origin-top mb-12">
             <div id="game-map"></div>
         </div>
     </div>
@@ -111,10 +116,10 @@
         const SINGLE_ITEMS = [{r:1, c:8}, {r:1, c:25}, {r:8, c:1}, {r:8, c:8}, {r:8, c:25}, {r:8, c:32}, {r:25, c:1}, {r:25, c:8}, {r:25, c:25}, {r:25, c:32}, {r:32, c:8}, {r:32, c:25}];
         const ITEM_GROUPS = [[{r:8, c:16}, {r:8, c:17}], [{r:16, c:8}, {r:17, c:8}], [{r:16, c:16}, {r:16, c:17}, {r:17, c:16}, {r:17, c:17}], [{r:16, c:25}, {r:17, c:25}], [{r:25, c:16}, {r:25, c:17}]];
         
-        const COLORS = ['#FF0000', '#00FF00', '#0070FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#8B4513', '#006400', '#4B0082', '#FFC0CB', '#7CFC00', '#000080', '#808080', '#E6E6FA', '#008080'];
+        // 修改了 COLORS[14] 和 COLORS[15] 的顏色 (對應 8A 和 8B) 變更為深巧克力色
+        const COLORS = ['#FF0000', '#00FF00', '#0070FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#8B4513', '#006400', '#4B0082', '#FFC0CB', '#7CFC00', '#000080', '#808080', '#3d1d05', '#522808'];
         const ITEM_ICONS = { "石頭":"🪨", "拆除卡":"🔨", "搶奪卡":"🔫", "防禦卡":"🛡️", "干擾卡":"🌀", "雙倍卡":"✖️2", "加分卡":"⭐" };
 
-        // 關鍵：確保初始化時 mapData 是一個物件
         let gameState = { mapData: {}, placedTiles: [], teamInfo: [], itemPool: [], deadItems: [], triggeredGroups: [] };
         let currentTeamIdx = 0, currentShapeIdx = 1, currentShape = TILE_DEFS[1], currentMode = 'place', isSpinning = false;
 
@@ -156,7 +161,6 @@
             db.ref('sandtable').on('value', (snapshot) => {
                 const val = snapshot.val();
                 if (val && val.teamInfo) {
-                    // 確保 mapData 即使在資料庫不存在也是個空物件，防止 undefined.['1-1'] 錯誤
                     gameState = {
                         ...val,
                         mapData: val.mapData || {},
