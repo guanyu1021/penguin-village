@@ -14,19 +14,24 @@
         .cell-stone { background-color: #475569; color: white; border: 2px solid #1e293b; font-size: 14px; }
         #game-map { display: grid; grid-template-columns: repeat(32, 22px); background-color: #334155; padding: 4px; gap: 1px; }
         .sidebar { height: 100vh; overflow-y: auto; background-color: #1e293b; color: white; }
+        /* 防止地圖縮放時破壞佈局 */
+        .map-container { display: flex; flex-direction: column; align-items: center; min-height: 100vh; width: 100%; padding-top: 2rem; }
     </style>
 </head>
 <body class="bg-slate-900 flex">
-    <div class="w-80 p-6 sidebar flex flex-col gap-4">
+    <div class="w-80 p-6 sidebar flex flex-col gap-4 shrink-0 shadow-2xl">
         <h1 class="text-2xl font-bold text-yellow-500 border-b border-slate-600 pb-2">即時排行榜</h1>
         <div id="score-board" class="space-y-3">載入中...</div>
     </div>
 
-    <div class="flex-1 flex flex-col items-center justify-center p-6">
-        <div class="mb-4 text-white text-3xl font-black tracking-widest">尼可恰大王：沙盤征服戰</div>
-        <div class="bg-slate-700 p-2 rounded shadow-2xl scale-110">
+    <div class="flex-1 map-container overflow-auto">
+        <div class="mb-8 text-white text-4xl font-black tracking-widest drop-shadow-lg text-center">
+            尼可恰大王：沙盤征服戰
+        </div>
+        <div class="bg-slate-700 p-3 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] scale-110 origin-top">
             <div id="game-map"></div>
         </div>
+        <div class="h-20"></div>
     </div>
 
     <script>
@@ -65,6 +70,26 @@
             const data = snapshot.val();
             if(!data) return;
 
+            // --- 核心修正：檢視者端即時計算分數，確保與地圖絕對同步 ---
+            data.teamInfo.forEach(t => {
+                let types = new Set();
+                const teamTiles = data.placedTiles?.filter(pt => pt.teamId === t.id) || [];
+                teamTiles.forEach(pt => { if(pt.shapeIdx) types.add(pt.shapeIdx); });
+
+                let dp = Array(GRID_SIZE+1).fill().map(()=>Array(GRID_SIZE+1).fill(0));
+                let n = 0;
+                for(let r=1; r<=GRID_SIZE; r++){
+                    for(let c=1; c<=GRID_SIZE; c++){
+                        if(data.mapData?.[`${r}-${c}`]?.teamId === t.id) {
+                            dp[r][c] = Math.min(dp[r-1][c]||0, dp[r][c-1]||0, dp[r-1][c-1]||0) + 1;
+                            n = Math.max(n, dp[r][c]);
+                        }
+                    }
+                }
+                // 即時算出分數（不依賴資料庫傳來的 score 欄位）
+                t.realScore = (n * n) + (types.size * 2) - (t.penalties?.filter(p=>p).length * 10 || 0) + (t.bonusScore || 0);
+            });
+
             // 渲染地圖
             for(let r=1; r<=GRID_SIZE; r++) {
                 for(let c=1; c<=GRID_SIZE; c++) {
@@ -94,15 +119,21 @@
                 }
             }
 
-            // 渲染排行榜
-            const sorted = [...data.teamInfo].sort((a,b) => b.score - a.score);
+            // 渲染排行榜 (使用剛剛計算出的 realScore)
+            const sorted = [...data.teamInfo].sort((a,b) => b.realScore - a.realScore);
             const board = document.getElementById('score-board');
             board.innerHTML = '';
             sorted.forEach((t, i) => {
                 const d = document.createElement('div');
-                d.className = 'p-3 bg-slate-800 rounded-lg border-l-8 flex justify-between items-center';
+                d.className = 'p-3 bg-slate-800 rounded-lg border-l-8 flex justify-between items-center transition-all duration-300';
                 d.style.borderColor = t.color;
-                d.innerHTML = `<span class="text-lg font-bold">#${i+1} ${t.id}</span><span class="text-xl font-black">${t.score}</span>`;
+                d.innerHTML = `
+                    <div class="flex flex-col">
+                        <span class="text-xs text-slate-400 font-bold">RANK ${i+1}</span>
+                        <span class="text-lg font-bold text-white">${t.id} 小隊</span>
+                    </div>
+                    <span class="text-2xl font-black text-white">${t.realScore}</span>
+                `;
                 board.appendChild(d);
             });
         });
