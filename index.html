@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>即時戰況 - 尼可恰大王：沙盤征服戰</title>
+    <title>即時戰況 - 尼可恰大王：沙盤征服戰 V8.5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -14,13 +14,24 @@
         .cell-stone { background-color: #475569; color: white; border: 2px solid #1e293b; font-size: 14px; }
         #game-map { display: grid; grid-template-columns: repeat(32, 22px); background-color: #334155; padding: 4px; gap: 1px; }
         .sidebar { height: 100vh; overflow-y: auto; background-color: #1e293b; color: white; }
-        /* 防止地圖縮放時破壞佈局 */
         .map-container { display: flex; flex-direction: column; align-items: center; min-height: 100vh; width: 100%; padding-top: 2rem; }
+
+        /* 基地文字襯底效果 - 同步管理者頁面 */
+        .base-text { 
+            font-weight: 900; 
+            color: black; 
+            text-shadow: 
+                2px 2px 0 #fff, -2px -2px 0 #fff, 
+                2px -2px 0 #fff, -2px 2px 0 #fff,
+                0px 2px 0 #fff, 0px -2px 0 #fff,
+                2px 0px 0 #fff, -2px 0px 0 #fff;
+            z-index: 10;
+        }
     </style>
 </head>
 <body class="bg-slate-900 flex">
     <div class="w-80 p-6 sidebar flex flex-col gap-4 shrink-0 shadow-2xl">
-        <h1 class="text-2xl font-bold text-yellow-500 border-b border-slate-600 pb-2">即時排行榜</h1>
+        <h1 class="text-2xl font-bold text-yellow-500 border-b border-slate-600 pb-2 text-center">🏆 即時排行榜</h1>
         <div id="score-board" class="space-y-3">載入中...</div>
     </div>
 
@@ -55,7 +66,6 @@
 
         function isItem(r, c) { return SINGLE_ITEMS.some(it => it.r === r && it.c === c) || ITEM_GROUPS.some(g => g.some(p => p.r === r && p.c === c)); }
 
-        // 生成地圖格子
         const mapEl = document.getElementById('game-map');
         for(let r=1; r<=GRID_SIZE; r++) {
             for(let c=1; c<=GRID_SIZE; c++) {
@@ -70,7 +80,7 @@
             const data = snapshot.val();
             if(!data) return;
 
-            // --- 核心修正：檢視者端即時計算分數，確保與地圖絕對同步 ---
+            // --- 核心：檢視者端即時計算分數 (包含新的 -5 扣分邏輯) ---
             data.teamInfo.forEach(t => {
                 let types = new Set();
                 const teamTiles = data.placedTiles?.filter(pt => pt.teamId === t.id) || [];
@@ -86,8 +96,9 @@
                         }
                     }
                 }
-                // 即時算出分數（不依賴資料庫傳來的 score 欄位）
-                t.realScore = (n * n) + (types.size * 2) - (t.penalties?.filter(p=>p).length * 10 || 0) + (t.bonusScore || 0);
+                // 扣分計算：每個勾選扣 5 分
+                const penaltyValue = (t.penalties || [false, false]).filter(p => p).length * 5;
+                t.realScore = (n * n) + (types.size * 2) - penaltyValue + (t.bonusScore || 0);
             });
 
             // 渲染地圖
@@ -99,7 +110,7 @@
                     el.className = 'grid-cell';
                     el.style.backgroundColor = "";
                     el.style.boxShadow = "";
-                    el.textContent = "";
+                    el.innerHTML = "";
 
                     if(cellData) {
                         if(cellData.type === 'stone') {
@@ -109,7 +120,11 @@
                             el.style.backgroundColor = team ? team.color : "#444";
                             const tile = data.placedTiles?.find(t => t.id === cellData.tileId);
                             if(tile) applyBorder(el, r, c, tile.coords);
-                            if(team?.baseCoord?.r === r && team?.baseCoord?.c === c) el.textContent = team.id;
+                            
+                            // 基地文字顯示優化
+                            if(team?.baseCoord?.r === r && team?.baseCoord?.c === c) {
+                                el.innerHTML = `<span class="base-text">${team.id}</span>`;
+                            }
                         }
                     } else {
                         if(BASE_LOCS.find(b => b.r === r && b.c === c)) el.classList.add('cell-base-unclaimed');
@@ -119,7 +134,7 @@
                 }
             }
 
-            // 渲染排行榜 (使用剛剛計算出的 realScore)
+            // 渲染排行榜
             const sorted = [...data.teamInfo].sort((a,b) => b.realScore - a.realScore);
             const board = document.getElementById('score-board');
             board.innerHTML = '';
@@ -129,10 +144,10 @@
                 d.style.borderColor = t.color;
                 d.innerHTML = `
                     <div class="flex flex-col">
-                        <span class="text-xs text-slate-400 font-bold">RANK ${i+1}</span>
+                        <span class="text-xs text-slate-400 font-bold uppercase tracking-tighter">RANK ${i+1}</span>
                         <span class="text-lg font-bold text-white">${t.id} 小隊</span>
                     </div>
-                    <span class="text-2xl font-black text-white">${t.realScore}</span>
+                    <span class="text-3xl font-black text-yellow-400 italic">${t.realScore}</span>
                 `;
                 board.appendChild(d);
             });
