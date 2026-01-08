@@ -88,7 +88,6 @@
     </div>
 
     <script>
-        // --- Firebase 配置 ---
         const firebaseConfig = {
             apiKey: "AIzaSyBBufDrt_ReM-5qLeQyJs2nXAwdMO_TbC4",
             authDomain: "sunflower-b5be6.firebaseapp.com",
@@ -102,7 +101,6 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // --- 遊戲常數與狀態 ---
         const GRID_SIZE = 32;
         const TILE_DEFS = { 1: [[0,0]], 2: [[0,0],[0,1]], 3: [[0,0],[0,1],[1,1]], 4: [[0,0],[0,1],[0,2]], 5: [[0,0],[0,1],[0,2],[1,2]], 6: [[0,0],[0,1],[0,2],[0,3]], 7: [[0,0],[0,1],[0,2],[1,1]], 8: [[0,0],[0,1],[1,1],[1,2]], 9: [[0,0],[1,0],[1,1],[1,2],[0,2]], 10: [[0,0],[1,0],[1,1],[1,2],[2,2]], 11: [[0,0],[1,0],[1,1],[1,2],[2,1]], 12: [[0,0],[0,1],[0,2],[1,1],[2,1]], 13: [[0,0],[1,0],[2,0],[2,1],[2,2]], 14: [[0,0],[0,1],[0,2],[0,3],[1,1]], 15: [[0,0],[0,1],[0,2],[1,2],[1,3]], 16: [[0,0],[0,1],[1,1],[1,2],[2,2]] };
         const BASE_LOCS = [{r:4, c:4}, {r:4, c:12}, {r:4, c:21}, {r:4, c:29}, {r:12, c:4}, {r:12, c:12}, {r:12, c:21}, {r:12, c:29}, {r:21, c:4}, {r:21, c:12}, {r:21, c:21}, {r:21, c:29}, {r:29, c:4}, {r:29, c:12}, {r:29, c:21}, {r:29, c:29}];
@@ -111,24 +109,10 @@
         const COLORS = ['#F87171', '#FB923C', '#FBBF24', '#34D399', '#22D3EE', '#60A5FA', '#818CF8', '#312E81', '#14B8A6', '#F472B6', '#94A3B8', '#4ADE80', '#A3E635', '#7E22CE', '#2DD4BF', '#FB7185'];
         const ITEM_ICONS = { "石頭":"🪨", "拆除卡":"🔨", "搶奪卡":"🔫", "防禦卡":"🛡️", "干擾卡":"🌀", "雙倍卡":"✖️2", "加分卡":"⭐" };
 
-        let gameState = {
-            mapData: {}, // key: "r-c", value: {teamId, type, tileId}
-            placedTiles: [],
-            teamInfo: [],
-            itemPool: ["石頭", "石頭", "石頭", "拆除卡", "拆除卡", "搶奪卡", "搶奪卡", "防禦卡", "防禦卡", "防禦卡", "干擾卡", "干擾卡", "干擾卡", "雙倍卡", "雙倍卡", "雙倍卡", "加分卡"],
-            deadItems: [],
-            triggeredGroups: []
-        };
+        let gameState = { mapData: {}, placedTiles: [], teamInfo: [], itemPool: [], deadItems: [], triggeredGroups: [] };
+        let currentTeamIdx = 0, currentShapeIdx = 1, currentShape = TILE_DEFS[1], currentMode = 'place', isSpinning = false;
 
-        let currentTeamIdx = 0;
-        let currentShapeIdx = 1;
-        let currentShape = TILE_DEFS[1];
-        let currentMode = 'place';
-        let isSpinning = false;
-
-        // --- 初始化 ---
         function init() {
-            // 初始化 Team 選項
             const select = document.getElementById('team-select');
             for(let i=0; i<16; i++) {
                 const id = `${Math.floor(i/2)+1}${i%2===0?'A':'B'}`;
@@ -136,8 +120,6 @@
                 opt.value = i; opt.textContent = `第 ${id} 小隊`;
                 select.appendChild(opt);
             }
-
-            // 初始化板塊按鈕
             const palette = document.getElementById('tile-palette');
             Object.keys(TILE_DEFS).forEach(k => {
                 const b = document.createElement('button');
@@ -146,24 +128,14 @@
                 b.onclick = () => { currentShapeIdx = parseInt(k); currentShape = TILE_DEFS[k]; setMode('place'); };
                 palette.appendChild(b);
             });
-
-            // 監聽 Firebase 數據
             db.ref('sandtable').on('value', (snapshot) => {
                 const val = snapshot.val();
                 if (val) {
                     gameState = val;
                     if(!gameState.mapData) gameState.mapData = {};
-                    if(!gameState.placedTiles) gameState.placedTiles = [];
-                    if(!gameState.deadItems) gameState.deadItems = [];
-                    if(!gameState.triggeredGroups) gameState.triggeredGroups = [];
                     renderAll();
-                } else {
-                    // 第一次執行，初始化預設值到 Firebase
-                    resetGame();
-                }
+                } else { resetGame(); }
             });
-
-            // 地圖點擊容器 (一次性生成)
             const mapEl = document.getElementById('game-map');
             for(let r=1; r<=GRID_SIZE; r++) {
                 for(let c=1; c<=GRID_SIZE; c++) {
@@ -184,45 +156,27 @@
                 teams.push({ id, color: COLORS[i], score: 0, bonusScore: 0, baseSelected: false, baseCoord: null, penalties: [false, false] });
             }
             db.ref('sandtable').set({
-                mapData: {},
-                placedTiles: [],
-                teamInfo: teams,
+                mapData: {}, placedTiles: [], teamInfo: teams,
                 itemPool: ["石頭", "石頭", "石頭", "拆除卡", "拆除卡", "搶奪卡", "搶奪卡", "防禦卡", "防禦卡", "防禦卡", "干擾卡", "干擾卡", "干擾卡", "雙倍卡", "雙倍卡", "雙倍卡", "加分卡"],
-                deadItems: [],
-                triggeredGroups: []
+                deadItems: [], triggeredGroups: []
             });
         }
 
-        // --- 渲染 ---
-        function renderAll() {
-            renderMap();
-            updateScores();
-            updateItemInventory();
-            resetStatusDisplay();
-        }
+        function renderAll() { renderMap(); updateScores(); updateItemInventory(); resetStatusDisplay(); }
 
         function renderMap() {
             for(let r=1; r<=GRID_SIZE; r++) {
                 for(let c=1; c<=GRID_SIZE; c++) {
                     const el = document.getElementById(`c-${r}-${c}`);
                     const data = gameState.mapData[`${r}-${c}`];
-                    
-                    el.className = 'grid-cell';
-                    el.textContent = "";
-                    el.style.backgroundColor = "";
-                    el.style.boxShadow = "";
-
+                    el.className = 'grid-cell'; el.textContent = ""; el.style.backgroundColor = ""; el.style.boxShadow = "";
                     if(data) {
-                        if(data.type === 'stone') {
-                            el.classList.add('cell-stone');
-                            el.textContent = "🪨";
-                        } else {
+                        if(data.type === 'stone') { el.classList.add('cell-stone'); el.textContent = "🪨"; }
+                        else {
                             const team = gameState.teamInfo.find(t => t.id === data.teamId);
                             el.style.backgroundColor = team ? team.color : "#444";
-                            if(gameState.placedTiles) {
-                                const tile = gameState.placedTiles.find(t => t.id === data.tileId);
-                                if(tile) applyBorder(el, r, c, tile.coords);
-                            }
+                            const tile = gameState.placedTiles.find(t => t.id === data.tileId);
+                            if(tile) applyBorder(el, r, c, tile.coords);
                             if(team && team.baseCoord?.r === r && team.baseCoord?.c === c) el.textContent = team.id;
                         }
                     } else {
@@ -243,7 +197,6 @@
             el.style.boxShadow = shadows.join(", ");
         }
 
-        // --- 功能邏輯 ---
         function changeTeam(val) { currentTeamIdx = parseInt(val); resetStatusDisplay(); }
         function setMode(mode) { currentMode = mode; document.querySelectorAll('[id^="mode-"]').forEach(b => b.className = b.id === `mode-${mode}` ? 'py-2 rounded font-bold bg-blue-600 text-white text-sm' : 'py-2 rounded font-bold bg-slate-600 text-white text-sm'); }
         function isItem(r, c) { return SINGLE_ITEMS.some(it => it.r === r && it.c === c) || ITEM_GROUPS.some(g => g.some(p => p.r === r && p.c === c)); }
@@ -261,12 +214,14 @@
                     }
                 }
             } else if(currentMode === 'stone') {
-                document.getElementById(`c-${r}-${c}`).classList.add(!gameState.mapData[`${r}-${c}`] ? 'preview-valid' : 'preview-invalid');
+                const cell = document.getElementById(`c-${r}-${c}`);
+                if(cell) cell.classList.add(!gameState.mapData[`${r}-${c}`] ? 'preview-valid' : 'preview-invalid');
             } else {
                 const legality = checkLegality(r, c, team);
                 currentShape.forEach(([dr, dc]) => {
                     const nr = r + dr, nc = c + dc;
-                    if(nr>=1 && nr<=GRID_SIZE && nc>=1 && nc<=GRID_SIZE) document.getElementById(`c-${nr}-${nc}`).classList.add(legality.valid ? 'preview-valid' : 'preview-invalid');
+                    const cell = document.getElementById(`c-${nr}-${nc}`);
+                    if(cell) cell.classList.add(legality.valid ? 'preview-valid' : 'preview-invalid');
                 });
             }
         }
@@ -274,105 +229,94 @@
         function checkLegality(r, c, team) {
             if(!team.baseSelected) {
                 const isBase = BASE_LOCS.find(b => b.r === r && b.c === c);
-                return (isBase && !gameState.mapData[`${r}-${c}`]) ? {valid: true, msg: "可選為基地"} : {valid: false, msg: "請選紅色格"};
+                return (isBase && !gameState.mapData[`${r}-${c}`]) ? {valid: true} : {valid: false};
             }
             let hasConnect = false;
             let cellsToPlace = [];
             for(let [dr, dc] of currentShape) {
                 const nr = r + dr, nc = c + dc;
-                if(nr<1 || nr>GRID_SIZE || nc<1 || nc>GRID_SIZE) return {valid: false, msg: "越界"};
-                if(gameState.mapData[`${nr}-${nc}`]) return {valid: false, msg: "重疊"};
+                // 修正：檢查座標是否在地圖範圍內
+                if(nr < 1 || nr > GRID_SIZE || nc < 1 || nc > GRID_SIZE) return {valid: false};
+                if(gameState.mapData[`${nr}-${nc}`]) return {valid: false};
                 cellsToPlace.push({r: nr, c: nc});
             }
             for(let pos of cellsToPlace) {
                 for(let [ar, ac] of [[0,1],[0,-1],[1,0],[-1,0]]) {
                     const nr = pos.r + ar, nc = pos.c + ac;
-                    const neighbor = gameState.mapData[`${nr}-${nc}`];
-                    if(neighbor && neighbor.type !== 'stone') {
-                        if(neighbor.teamId === team.id) hasConnect = true;
-                        else return {valid: false, msg: "鄰接敵軍！"};
+                    // 修正：檢查鄰居座標是否在地圖範圍內
+                    if (nr >= 1 && nr <= GRID_SIZE && nc >= 1 && nc <= GRID_SIZE) {
+                        const neighbor = gameState.mapData[`${nr}-${nc}`];
+                        if(neighbor && neighbor.type !== 'stone') {
+                            if(neighbor.teamId === team.id) hasConnect = true;
+                            else return {valid: false}; // 鄰接敵軍
+                        }
                     }
                 }
             }
-            return hasConnect ? {valid: true, msg: "可放置"} : {valid: false, msg: "需鄰接領土"};
+            return hasConnect ? {valid: true} : {valid: false};
         }
 
         async function handleClick(r, c) {
             const team = gameState.teamInfo[currentTeamIdx];
             if(currentMode === 'remove') {
                 const data = gameState.mapData[`${r}-${c}`];
-                if(!data) return;
-                if(team.baseCoord?.r === r && team.baseCoord?.c === c) return;
-
-                if(data.type === 'stone') {
-                    delete gameState.mapData[`${r}-${c}`];
-                } else if(data.teamId === team.id) {
+                if(!data || (team.baseCoord?.r === r && team.baseCoord?.c === c)) return;
+                if(data.type === 'stone') { delete gameState.mapData[`${r}-${c}`]; } 
+                else if(data.teamId === team.id) {
                     const tileIdx = gameState.placedTiles.findIndex(t => t.id === data.tileId);
-                    const tile = gameState.placedTiles[tileIdx];
-                    if(!checkConnectivityAfterRemove(team, tile)) { alert("會斷裂！"); return; }
-                    tile.coords.forEach(p => delete gameState.mapData[`${p.r}-${p.c}`]);
+                    if(!checkConnectivityAfterRemove(team, gameState.placedTiles[tileIdx])) { alert("會斷裂！"); return; }
+                    gameState.placedTiles[tileIdx].coords.forEach(p => delete gameState.mapData[`${p.r}-${p.c}`]);
                     gameState.placedTiles.splice(tileIdx, 1);
                 }
             } else if(currentMode === 'stone') {
                 if(!gameState.mapData[`${r}-${c}`]) gameState.mapData[`${r}-${c}`] = { type: 'stone' };
             } else {
                 if(!team.baseSelected) {
-                    const isBase = BASE_LOCS.find(b => b.r === r && b.c === c);
-                    if(isBase && !gameState.mapData[`${r}-${c}`]) {
+                    if(BASE_LOCS.find(b => b.r === r && b.c === c) && !gameState.mapData[`${r}-${c}`]) {
                         const tileId = Date.now();
                         gameState.mapData[`${r}-${c}`] = { teamId: team.id, tileId };
                         gameState.placedTiles.push({ id: tileId, teamId: team.id, coords: [{r, c}] });
                         team.baseSelected = true; team.baseCoord = {r, c};
                     }
-                } else {
-                    const legality = checkLegality(r, c, team);
-                    if(legality.valid) {
-                        const tileId = Date.now();
-                        const coords = [];
-                        let tCount = 0;
-                        currentShape.forEach(([dr, dc]) => {
-                            const nr = r + dr, nc = c + dc;
-                            gameState.mapData[`${nr}-${nc}`] = { teamId: team.id, tileId };
-                            coords.push({r: nr, c: nc});
-                            if(isItem(nr, nc) && !gameState.deadItems.includes(`${nr},${nc}`)) {
-                                let gIdx = ITEM_GROUPS.findIndex(g => g.some(p => p.r === nr && p.c === nc));
-                                if(gIdx !== -1) {
-                                    if(!gameState.triggeredGroups.includes(gIdx)) {
-                                        gameState.triggeredGroups.push(gIdx); tCount++;
-                                        ITEM_GROUPS[gIdx].forEach(p => gameState.deadItems.push(`${p.r},${p.c}`));
-                                    }
-                                } else { gameState.deadItems.push(`${nr},${nc}`); tCount++; }
-                            }
-                        });
-                        gameState.placedTiles.push({ id: tileId, teamId: team.id, shapeIdx: currentShapeIdx, coords });
-                        if(tCount > 0) openLottery(tCount);
-                    }
+                } else if(checkLegality(r, c, team).valid) {
+                    const tileId = Date.now(); const coords = []; let tCount = 0;
+                    currentShape.forEach(([dr, dc]) => {
+                        const nr = r + dr, nc = c + dc;
+                        gameState.mapData[`${nr}-${nc}`] = { teamId: team.id, tileId };
+                        coords.push({r: nr, c: nc});
+                        if(isItem(nr, nc) && !gameState.deadItems.includes(`${nr},${nc}`)) {
+                            let gIdx = ITEM_GROUPS.findIndex(g => g.some(p => p.r === nr && p.c === nc));
+                            if(gIdx !== -1) {
+                                if(!gameState.triggeredGroups.includes(gIdx)) {
+                                    gameState.triggeredGroups.push(gIdx); tCount++;
+                                    ITEM_GROUPS[gIdx].forEach(p => gameState.deadItems.push(`${p.r},${p.c}`));
+                                }
+                            } else { gameState.deadItems.push(`${nr},${nc}`); tCount++; }
+                        }
+                    });
+                    gameState.placedTiles.push({ id: tileId, teamId: team.id, shapeIdx: currentShapeIdx, coords });
+                    if(tCount > 0) openLottery(tCount);
                 }
             }
             db.ref('sandtable').set(gameState);
         }
 
-        // --- 抽獎邏輯 ---
         function openLottery(count) {
-            const modal = document.getElementById('item-modal');
             document.getElementById('modal-title').textContent = `獲得 ${count} 次抽獎！`;
             document.getElementById('start-draw-btn').classList.remove('hidden');
             document.getElementById('modal-confirm-btn').classList.add('hidden');
-            modal.classList.remove('hidden');
+            document.getElementById('item-modal').classList.remove('hidden');
         }
 
         function startSlotMachine() {
             if(isSpinning) return;
-            isSpinning = true;
-            const icon = document.getElementById('modal-icon');
-            icon.classList.add('slot-active');
-            let c = 0;
+            isSpinning = true; const icon = document.getElementById('modal-icon');
+            icon.classList.add('slot-active'); let c = 0;
             const spin = setInterval(() => {
                 const keys = Object.keys(ITEM_ICONS);
                 icon.textContent = ITEM_ICONS[keys[Math.floor(Math.random()*keys.length)]];
                 if(++c > 20) {
-                    clearInterval(spin);
-                    isSpinning = false;
+                    clearInterval(spin); isSpinning = false;
                     const randIdx = Math.floor(Math.random() * gameState.itemPool.length);
                     const item = gameState.itemPool.splice(randIdx, 1)[0];
                     icon.textContent = ITEM_ICONS[item] || "📭";
@@ -387,13 +331,11 @@
 
         function closeModal() { document.getElementById('item-modal').classList.add('hidden'); }
 
-        // --- 評分與輔助 ---
         function updateScores() {
             gameState.teamInfo.forEach(t => {
                 let types = new Set();
                 gameState.placedTiles.filter(pt => pt.teamId === t.id).forEach(pt => { if(pt.shapeIdx) types.add(pt.shapeIdx); });
-                let dp = Array(GRID_SIZE+1).fill().map(()=>Array(GRID_SIZE+1).fill(0));
-                let n = 0;
+                let dp = Array(GRID_SIZE+1).fill().map(()=>Array(GRID_SIZE+1).fill(0)), n = 0;
                 for(let r=1; r<=GRID_SIZE; r++){
                     for(let c=1; c<=GRID_SIZE; c++){
                         if(gameState.mapData[`${r}-${c}`]?.teamId === t.id) {
@@ -403,18 +345,12 @@
                     }
                 }
                 t.score = (n * n) + (types.size * 2) - (t.penalties.filter(p=>p).length * 10) + (t.bonusScore || 0);
-                t.currentN = n; t.currentTypes = types.size;
             });
-
-            const sorted = [...gameState.teamInfo].sort((a,b)=>b.score - a.score);
-            const board = document.getElementById('score-board');
-            board.innerHTML = '';
-            sorted.forEach((t, i) => {
+            const board = document.getElementById('score-board'); board.innerHTML = '';
+            [...gameState.teamInfo].sort((a,b)=>b.score - a.score).forEach((t, i) => {
                 const d = document.createElement('div');
-                d.className = 'p-2 bg-slate-800 rounded border-l-4';
-                d.style.borderColor = t.color;
-                d.innerHTML = `
-                    <div class="flex justify-between font-bold text-white"><span>${i+1}. ${t.id}</span> <span>${t.score}</span></div>
+                d.className = 'p-2 bg-slate-800 rounded border-l-4'; d.style.borderColor = t.color;
+                d.innerHTML = `<div class="flex justify-between font-bold text-white"><span>${i+1}. ${t.id}</span> <span>${t.score}</span></div>
                     <div class="mt-1 flex justify-between text-[10px]">
                         <button onclick="adjBonus('${t.id}', 1)" class="bg-slate-600 px-1 rounded">加分</button>
                         <button onclick="adjBonus('${t.id}', -1)" class="bg-slate-600 px-1 rounded">扣分</button>
@@ -432,16 +368,13 @@
 
         function checkConnectivityAfterRemove(team, tileToRemove) {
             const teamCells = Object.keys(gameState.mapData).filter(k => {
-                const d = gameState.mapData[k];
-                return d.teamId === team.id && d.tileId !== tileToRemove.id;
+                const d = gameState.mapData[k]; return d.teamId === team.id && d.tileId !== tileToRemove.id;
             });
             if(teamCells.length === 0) return true;
-            const queue = [`${team.baseCoord.r}-${team.baseCoord.c}`];
-            const visited = new Set(queue);
+            const queue = [`${team.baseCoord.r}-${team.baseCoord.c}`], visited = new Set(queue);
             let count = 0;
             while(queue.length > 0) {
-                const [r, c] = queue.shift().split('-').map(Number);
-                count++;
+                const [r, c] = queue.shift().split('-').map(Number); count++;
                 [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr, dc]) => {
                     const key = `${r+dr}-${c+dc}`;
                     if(teamCells.includes(key) && !visited.has(key)) { visited.add(key); queue.push(key); }
@@ -452,11 +385,9 @@
 
         function updateItemInventory() {
             const counts = {}; gameState.itemPool.forEach(i => counts[i] = (counts[i]||0)+1);
-            const container = document.getElementById('item-inventory');
-            container.innerHTML = '';
+            const container = document.getElementById('item-inventory'); container.innerHTML = '';
             Object.keys(ITEM_ICONS).forEach(i => {
-                const div = document.createElement('div');
-                div.className = 'flex justify-between';
+                const div = document.createElement('div'); div.className = 'flex justify-between';
                 div.innerHTML = `<span>${ITEM_ICONS[i]} ${i}</span> <span>${counts[i]||0}</span>`;
                 container.appendChild(div);
             });
@@ -471,7 +402,6 @@
             const h = document.querySelector('.grid-cell:hover');
             if(h) { const [_, r, c] = h.id.split('-').map(Number); handlePreview(r, c); }
         };
-
         init();
     </script>
 </body>
