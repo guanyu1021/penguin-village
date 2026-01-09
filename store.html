@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商店系統 - 尼可恰大王：沙盤征服戰</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        .tile-preview { display: grid; grid-template-columns: repeat(4, 12px); grid-template-rows: repeat(3, 12px); gap: 1px; margin-bottom: 8px; }
+        .preview-cell { width: 12px; height: 12px; background-color: #475569; border-radius: 2px; }
+        .preview-cell.active { background-color: #3b82f6; }
+        .card-glow { transition: all 0.3s ease; }
+        .card-glow:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-12">
+
+    <header class="bg-slate-800 border-b border-slate-700 p-6 mb-8 sticky top-0 z-10 shadow-xl">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">尼可恰商店管理系統</h1>
+            <div id="sync-status" class="text-xs bg-slate-700 px-3 py-1 rounded-full text-slate-400">同步中...</div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 space-y-12">
+        
+        <section>
+            <div class="flex items-center gap-3 mb-6 border-l-4 border-blue-500 pl-4">
+                <h2 class="text-2xl font-bold">板塊供應區</h2>
+                <span class="text-sm text-slate-400">(低於 50% 自動漲價)</span>
+            </div>
+            <div id="tiles-container" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+                </div>
+        </section>
+
+        <hr class="border-slate-800">
+
+        <div class="grid md:grid-cols-2 gap-12">
+            <section>
+                <div class="flex items-center gap-3 mb-6 border-l-4 border-yellow-500 pl-4">
+                    <h2 class="text-2xl font-bold text-yellow-500">道具卡庫存</h2>
+                </div>
+                <div id="items-container" class="grid grid-cols-2 gap-4">
+                    </div>
+            </section>
+
+            <section>
+                <div class="flex items-center gap-3 mb-6 border-l-4 border-emerald-500 pl-4">
+                    <h2 class="text-2xl font-bold text-emerald-500">小隊扭蛋次數</h2>
+                </div>
+                <div id="capsule-container" class="grid grid-cols-4 gap-3 bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    </div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        // --- Firebase 配置 ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBBufDrt_ReM-5qLeQyJs2nXAwdMO_TbC4",
+            authDomain: "sunflower-b5be6.firebaseapp.com",
+            databaseURL: "https://sunflower-b5be6-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "sunflower-b5be6",
+            storageBucket: "sunflower-b5be6.firebasestorage.app",
+            messagingSenderId: "206261082118",
+            appId: "1:206261082118:web:77e158bd61b287056a8b87",
+            measurementId: "G-T477KW8R2L"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // --- 初始數據定義 ---
+        const TILE_DEFS = { 1: [[0,0]], 2: [[0,0],[0,1]], 3: [[0,0],[0,1],[1,1]], 4: [[0,0],[0,1],[0,2]], 5: [[0,0],[0,1],[0,2],[1,2]], 6: [[0,0],[0,1],[0,2],[0,3]], 7: [[0,0],[0,1],[0,2],[1,1]], 8: [[0,0],[0,1],[1,1],[1,2]], 9: [[0,0],[1,0],[1,1],[1,2],[0,2]], 10: [[0,0],[1,0],[1,1],[1,2],[2,2]], 11: [[0,0],[1,0],[1,1],[1,2],[2,1]], 12: [[0,0],[0,1],[0,2],[1,1],[2,1]], 13: [[0,0],[1,0],[2,0],[2,1],[2,2]], 14: [[0,0],[0,1],[0,2],[0,3],[1,1]], 15: [[0,0],[0,1],[0,2],[1,2],[1,3]], 16: [[0,0],[0,1],[1,1],[1,2],[2,2]] };
+        const TILE_LIMITS = [40,32,16,16,12,12,12,12,10,10,10,10,10,10,10,10];
+        const TILE_PRICES = [3,4,4,5,5,5,5,4,5,5,4,5,6,5,5,5];
+        const ITEM_DATA = { "石頭": 4, "拆除卡": 4, "搶奪卡": 4, "防禦卡": 6, "干擾卡": 6, "雙倍卡": 6, "加分卡": 2 };
+        const ITEM_ICONS = { "石頭":"🪨", "拆除卡":"🔨", "搶奪卡":"🔫", "防禦卡":"🛡️", "干擾卡":"🌀", "雙倍卡":"✖️2", "加分卡":"⭐" };
+
+        let storeData = { tiles: {}, items: {}, capsules: {} };
+
+        // --- 初始化渲染功能 ---
+        function init() {
+            renderTiles();
+            renderItems();
+            renderCapsules();
+            startListening();
+        }
+
+        function renderTiles() {
+            const container = document.getElementById('tiles-container');
+            for (let i = 1; i <= 16; i++) {
+                const div = document.createElement('div');
+                div.className = "bg-slate-800 border border-slate-700 p-3 rounded-xl card-glow text-center flex flex-col items-center";
+                
+                // 板塊預覽小方格
+                let previewHtml = '<div class="tile-preview">';
+                for(let r=0; r<3; r++) {
+                    for(let c=0; c<4; c++) {
+                        const isActive = TILE_DEFS[i].some(p => p[0]===r && p[1]===c);
+                        previewHtml += `<div class="preview-cell ${isActive ? 'active' : ''}"></div>`;
+                    }
+                }
+                previewHtml += '</div>';
+
+                div.innerHTML = `
+                    <div class="text-xs font-bold text-slate-500 mb-2">No.${i}</div>
+                    ${previewHtml}
+                    <div id="price-${i}" class="text-lg font-black text-blue-400 mb-2">$ ${TILE_PRICES[i-1]}</div>
+                    <div class="flex items-center bg-slate-900 rounded-lg p-1 border border-slate-700">
+                        <button onclick="updateTile(${i}, -1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded text-xl">-</button>
+                        <input id="tile-qty-${i}" type="number" readonly value="${TILE_LIMITS[i-1]}" class="w-10 bg-transparent text-center font-bold">
+                        <button onclick="updateTile(${i}, 1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded text-xl">+</button>
+                    </div>
+                    <div class="text-[10px] text-slate-500 mt-2">Max: ${TILE_LIMITS[i-1]}</div>
+                `;
+                container.appendChild(div);
+            }
+        }
+
+        function renderItems() {
+            const container = document.getElementById('items-container');
+            Object.keys(ITEM_DATA).forEach(name => {
+                const div = document.createElement('div');
+                div.className = "bg-slate-800 border border-slate-700 p-4 rounded-xl flex justify-between items-center card-glow";
+                div.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">${ITEM_ICONS[name]}</span>
+                        <div>
+                            <div class="font-bold text-sm">${name}</div>
+                            <div class="text-[10px] text-slate-500">上限: ${ITEM_DATA[name]}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center bg-slate-900 rounded-lg p-1">
+                        <button onclick="updateItem('${name}', -1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded">-</button>
+                        <input id="item-qty-${name}" type="number" readonly value="${ITEM_DATA[name]}" class="w-10 bg-transparent text-center font-bold">
+                        <button onclick="updateItem('${name}', 1)" class="w-8 h-8 flex items-center justify-center hover:bg-slate-700 rounded">+</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function renderCapsules() {
+            const container = document.getElementById('capsule-container');
+            for(let i=0; i<16; i++) {
+                const id = `${Math.floor(i/2)+1}${i%2===0?'A':'B'}`;
+                const div = document.createElement('div');
+                div.className = "flex flex-col items-center bg-slate-900 p-2 rounded-lg border border-slate-700";
+                div.innerHTML = `
+                    <div class="text-[10px] font-bold text-emerald-500 mb-1">${id}</div>
+                    <div class="flex items-center w-full justify-between">
+                        <button onclick="updateCapsule('${id}', -1)" class="text-slate-400 hover:text-white px-1">-</button>
+                        <span id="cap-qty-${id}" class="font-mono text-sm">2</span>
+                        <button onclick="updateCapsule('${id}', 1)" class="text-slate-400 hover:text-white px-1">+</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            }
+        }
+
+        // --- 邏輯控制 ---
+        function updateTile(id, delta) {
+            const current = storeData.tiles[id] || TILE_LIMITS[id-1];
+            const max = TILE_LIMITS[id-1];
+            const next = Math.max(0, Math.min(max, current + delta));
+            db.ref(`store/tiles/${id}`).set(next);
+        }
+
+        function updateItem(name, delta) {
+            const current = storeData.items[name] || ITEM_DATA[name];
+            const max = ITEM_DATA[name];
+            const next = Math.max(0, Math.min(max, current + delta));
+            db.ref(`store/items/${name}`).set(next);
+        }
+
+        function updateCapsule(teamId, delta) {
+            const current = storeData.capsules[teamId] || 2;
+            const next = Math.max(0, current + delta);
+            db.ref(`store/capsules/${teamId}`).set(next);
+        }
+
+        // --- Firebase 監聽 ---
+        function startListening() {
+            const statusEl = document.getElementById('sync-status');
+            db.ref('store').on('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                storeData.tiles = data.tiles || {};
+                storeData.items = data.items || {};
+                storeData.capsules = data.capsules || {};
+
+                // 更新 UI
+                for (let i = 1; i <= 16; i++) {
+                    const qty = storeData.tiles[i] !== undefined ? storeData.tiles[i] : TILE_LIMITS[i-1];
+                    const input = document.getElementById(`tile-qty-${i}`);
+                    const priceEl = document.getElementById(`price-${i}`);
+                    if(input) input.value = qty;
+                    
+                    // 價格邏輯: 剩餘數量 <= 初始一半 -> 價格 +2
+                    const isHalfOrLess = qty <= (TILE_LIMITS[i-1] / 2);
+                    const currentPrice = isHalfOrLess ? TILE_PRICES[i-1] + 2 : TILE_PRICES[i-1];
+                    if(priceEl) {
+                        priceEl.textContent = `$ ${currentPrice}`;
+                        priceEl.className = isHalfOrLess ? "text-lg font-black text-red-500 mb-2" : "text-lg font-black text-blue-400 mb-2";
+                    }
+                }
+
+                Object.keys(ITEM_DATA).forEach(name => {
+                    const qty = storeData.items[name] !== undefined ? storeData.items[name] : ITEM_DATA[name];
+                    const input = document.getElementById(`item-qty-${name}`);
+                    if(input) input.value = qty;
+                });
+
+                for(let i=0; i<16; i++) {
+                    const id = `${Math.floor(i/2)+1}${i%2===0?'A':'B'}`;
+                    const qty = storeData.capsules[id] !== undefined ? storeData.capsules[id] : 2;
+                    const span = document.getElementById(`cap-qty-${id}`);
+                    if(span) span.textContent = qty;
+                }
+
+                statusEl.textContent = "資料已同步";
+                statusEl.classList.replace('text-slate-400', 'text-emerald-400');
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>
