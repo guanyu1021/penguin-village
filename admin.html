@@ -16,7 +16,6 @@
         .preview-invalid { background-color: rgba(239, 68, 68, 0.6) !important; }
         .preview-remove { background-color: rgba(255, 255, 255, 0.5) !important; outline: 2px solid white; }
         
-        /* 側邊欄滾動條美化 */
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-track { background: #1e293b; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
@@ -26,7 +25,6 @@
         @keyframes slot-glow { 0% { transform: scale(1); box-shadow: 0 0 0px #facc15; } 50% { transform: scale(1.1); box-shadow: 0 0 20px #facc15; } 100% { transform: scale(1); box-shadow: 0 0 0px #facc15; } }
         .slot-active { animation: slot-glow 0.2s infinite; color: #facc15; }
 
-        /* 板塊調色盤樣式 */
         .tile-btn { position: relative; background: #334155; border: 2px solid #475569; border-radius: 6px; padding: 4px; transition: all 0.2s; height: 50px; display: flex; align-items: center; justify-content: center; }
         .tile-btn:hover { border-color: #3b82f6; background: #1e293b; }
         .tile-btn.active { border-color: #3b82f6; background: #1e3a8a; box-shadow: 0 0 10px rgba(59,130,246,0.5); }
@@ -71,20 +69,20 @@
         <button onclick="resetGameAction()" class="py-2 bg-red-900/50 hover:bg-red-800 text-red-200 rounded text-[10px] font-bold transition-colors border border-red-800">重置全場數據</button>
     </div>
 
-    <div class="w-64 p-4 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 shadow-xl">
+    <div class="w-72 p-4 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 shadow-xl">
         <h2 class="font-bold text-sm mb-4 text-yellow-500 border-b border-slate-700 pb-2 text-center flex items-center justify-center gap-2">
             🏆 即時計分榜
         </h2>
         <div id="score-board" class="flex-1 overflow-y-auto pr-1 space-y-2 custom-scroll">
-            </div>
+        </div>
     </div>
 
-    <div class="flex-1 h-screen flex flex-col items-center p-4 overflow-hidden relative">
-        <div id="status-display" class="mb-2 px-6 py-1 rounded-full bg-slate-800 text-white font-bold text-base shadow-lg border border-slate-600 z-10">
+    <div class="flex-1 h-screen flex flex-col items-center p-2 overflow-hidden relative">
+        <div id="status-display" class="mb-4 px-6 py-1 rounded-full bg-slate-800 text-white font-bold text-base shadow-lg border border-slate-600 z-10">
             正在連線...
         </div>
         
-        <div class="bg-slate-800 p-2 rounded-lg shadow-2xl scale-[0.88] origin-top transition-transform">
+        <div class="bg-slate-800 p-2 rounded-lg shadow-2xl scale-[0.80] origin-top transition-transform">
             <div id="game-map"></div>
         </div>
 
@@ -108,7 +106,7 @@
     </div>
 
     <script>
-        // --- Firebase & 變數設定 (維持不變) ---
+        /* JavaScript 邏輯部分維持原狀 */
         const firebaseConfig = {
             apiKey: "AIzaSyBBufDrt_ReM-5qLeQyJs2nXAwdMO_TbC4",
             authDomain: "sunflower-b5be6.firebaseapp.com",
@@ -133,7 +131,6 @@
         let gameState = { mapData: {}, placedTiles: [], teamInfo: [], itemPool: [], deadItems: [], triggeredGroups: [] };
         let currentTeamIdx = 0, currentShapeIdx = 1, currentShape = TILE_DEFS[1], currentMode = 'place', isSpinning = false;
 
-        // --- 初始化 UI ---
         function initUI() {
             const select = document.getElementById('team-select');
             select.innerHTML = '';
@@ -183,7 +180,6 @@
             }
         }
 
-        // --- 核心邏輯 (其餘保持不變) ---
         function startListening() {
             db.ref('sandtable').on('value', (snapshot) => {
                 const val = snapshot.val();
