@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>即時戰況 - 尼可恰大王：沙盤征服戰 V10.0</title>
+    <title>即時戰況 - 尼可恰大王：沙盤征服戰 V10.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -20,9 +20,9 @@
 
         .base-text { font-weight: 900; color: black; text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0px 2px 0 #fff, 0px -2px 0 #fff, 2px 0px 0 #fff, -2px 0px 0 #fff; z-index: 10; }
         
-        /* 板塊微縮預覽 - 放在左下角 */
-        .mini-tile-grid { display: grid; grid-template-columns: repeat(4, 4px); grid-template-rows: repeat(3, 4px); gap: 1px; }
-        .mini-cell { width: 4px; height: 4px; background: #334155; border-radius: 0.5px; }
+        /* 板塊微縮預覽 - 加大尺寸 */
+        .mini-tile-grid { display: grid; grid-template-columns: repeat(4, 6px); grid-template-rows: repeat(3, 6px); gap: 1px; }
+        .mini-cell { width: 6px; height: 6px; background: #334155; border-radius: 1px; }
         .mini-cell.active { background: #60a5fa; }
 
         /* 板塊卡片佈局 */
@@ -33,7 +33,7 @@
                 "shape price";
             grid-template-columns: 1fr auto;
             grid-template-rows: auto 1fr;
-            min-height: 60px;
+            min-height: 75px;
         }
     </style>
 </head>
@@ -44,24 +44,24 @@
         <div id="score-board" class="space-y-2">載入中...</div>
     </div>
 
-    <div class="w-[35%] column bg-slate-800 border-r border-slate-700">
+    <div class="w-[38%] column bg-slate-800 border-r border-slate-700">
         <h2 class="text-xl font-bold text-blue-400 border-b border-slate-600 pb-3 mb-4 text-center">🛒 商店與庫存狀況</h2>
         
         <div class="space-y-6">
             <section>
                 <h3 class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-widest flex items-center">
-                    <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>土地板塊庫存 (4x4)
+                    <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>土地板塊庫存
                 </h3>
                 <div id="shop-tiles" class="grid grid-cols-4 gap-2"></div>
             </section>
 
             <div class="grid grid-cols-2 gap-4">
                 <section>
-                    <h3 class="text-[10px] font-bold text-amber-500 mb-2 uppercase tracking-widest">📍 道具-地圖上</h3>
+                    <h3 class="text-[10px] font-bold text-amber-500 mb-2 uppercase tracking-widest">📍 道具-地圖上 (剩餘池)</h3>
                     <div id="map-items-list" class="space-y-1"></div>
                 </section>
                 <section>
-                    <h3 class="text-[10px] font-bold text-purple-400 mb-2 uppercase tracking-widest">🎁 道具-扭蛋</h3>
+                    <h3 class="text-[10px] font-bold text-purple-400 mb-2 uppercase tracking-widest">🎁 道具-扭蛋 (商店)</h3>
                     <div id="gacha-items-list" class="space-y-1"></div>
                 </section>
             </div>
@@ -127,7 +127,7 @@
             const data = root.sandtable || {};
             const store = root.store || {};
 
-            // 1. 渲染板塊 (4x4 且四角定位)
+            // 1. 板塊區更新：形狀放大、漲價連動變色
             const tileContainer = document.getElementById('shop-tiles');
             tileContainer.innerHTML = '';
             for(let i=1; i<=16; i++) {
@@ -135,6 +135,10 @@
                 const isHalf = qty <= (TILE_LIMITS[i-1] / 2);
                 const price = isHalf ? TILE_PRICES[i-1] + 2 : TILE_PRICES[i-1];
                 
+                // 漲價時庫存與價格一同變紅
+                const stateColor = isHalf ? 'text-red-400 font-black' : 'text-emerald-400 font-bold';
+                const priceColor = isHalf ? 'text-red-400' : 'text-yellow-500';
+
                 let miniGridHtml = '<div class="mini-tile-grid mt-1">';
                 for(let r=0; r<3; r++){
                     for(let c=0; c<4; c++){
@@ -145,21 +149,23 @@
                 miniGridHtml += '</div>';
 
                 tileContainer.innerHTML += `
-                    <div class="bg-slate-700/60 p-1.5 rounded border border-slate-500 tile-card">
+                    <div class="bg-slate-700/60 p-2 rounded border border-slate-500 tile-card">
                         <div style="grid-area: id" class="text-[9px] text-slate-400 font-bold">#${i}</div>
-                        <div style="grid-area: qty" class="text-xs font-black text-right ${qty <= 5 ? 'text-red-400' : 'text-emerald-400'}">${qty}</div>
+                        <div style="grid-area: qty" class="text-sm text-right ${stateColor}">${qty}</div>
                         <div style="grid-area: shape" class="flex items-end">${miniGridHtml}</div>
-                        <div style="grid-area: price" class="flex items-end justify-end text-[10px] font-black text-yellow-500">$${price}</div>
+                        <div style="grid-area: price" class="flex items-end justify-end text-xs font-black ${priceColor}">$${price}</div>
                     </div>
                 `;
             }
 
-            // 2. 道具分類顯示
-            // 地圖道具：與管理者頁面同步 (root.sandtable.items)
+            // 2. 道具同步修正
+            // 地圖道具：同步管理者頁面的產出池 (sandtable.itemPool)
             const mapElList = document.getElementById('map-items-list');
             mapElList.innerHTML = '';
             ALL_ITEM_NAMES.forEach(name => {
-                const qty = (data.items && data.items[name] !== undefined) ? data.items[name] : 0;
+                // 如果管理者頁面存放在 sandtable.itemPool，這裡就讀取該路徑
+                const itemSource = data.itemPool || data.items || {}; 
+                const qty = itemSource[name] !== undefined ? itemSource[name] : 0;
                 mapElList.innerHTML += `
                     <div class="bg-slate-900/50 px-2 py-1 rounded flex justify-between items-center text-[10px]">
                         <span>${ITEM_ICONS[name]} ${name}</span>
@@ -168,7 +174,7 @@
                 `;
             });
 
-            // 扭蛋道具：與商店頁面同步 (root.store.items)
+            // 扭蛋道具：同步商店 (store.items)
             const gachaElList = document.getElementById('gacha-items-list');
             gachaElList.innerHTML = '';
             ALL_ITEM_NAMES.forEach(name => {
