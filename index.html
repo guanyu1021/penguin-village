@@ -10,7 +10,8 @@
         body, html { height: 100vh; margin: 0; overflow: hidden; background-color: #0f172a; font-family: sans-serif; }
         .column { height: 100vh; overflow-y: auto; padding: 1rem; scrollbar-width: thin; }
         
-        .map-scaler { transform: scale(0.75); transform-origin: top center; }
+        /* 地圖縮放微調 */
+        .map-container { transform: scale(0.85); transform-origin: top center; margin-bottom: -60px; }
         .grid-cell { width: 22px; height: 22px; border: 0.1px solid #444; font-size: 10px; display: flex; align-items: center; justify-content: center; position: relative; }
         .cell-base-unclaimed { background-color: #ef4444; color: white; border: 2px solid #b91c1c; }
         .cell-item { background-color: #facc15; border: 1px solid #ca8a04; }
@@ -31,53 +32,60 @@
                 "shape price";
             grid-template-columns: 1fr auto;
             grid-template-rows: auto 1fr;
-            min-height: 85px;
+            min-height: 70px;
         }
+        /* 自定義滾動條 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
 </head>
 <body class="flex text-slate-100">
 
-    <div class="w-1/6 column bg-slate-900 border-r border-slate-800 shadow-xl">
+    <div class="w-1/5 column bg-slate-900 border-r border-slate-800 shadow-xl">
         <h1 class="text-lg font-bold text-yellow-500 border-b border-slate-700 pb-3 mb-4 text-center italic">🏆 排行榜</h1>
         <div id="score-board" class="space-y-2">載入中...</div>
     </div>
 
-    <div class="w-[38%] column bg-slate-800 border-r border-slate-700">
-        <h2 class="text-xl font-bold text-blue-400 border-b border-slate-600 pb-3 mb-4 text-center">🛒 商店與庫存狀況</h2>
-        
-        <div class="space-y-6">
-            <section>
-                <h3 class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-widest flex items-center">
-                    <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>土地板塊庫存
-                </h3>
-                <div id="shop-tiles" class="grid grid-cols-4 gap-2"></div>
-            </section>
-
-            <div class="grid grid-cols-2 gap-4">
-                <section>
-                    <h3 id="map-pool-header" class="text-[10px] font-bold text-amber-500 mb-2 uppercase tracking-widest">📍 道具-地圖上 (剩餘)</h3>
-                    <div id="map-items-list" class="space-y-1"></div>
-                </section>
-                <section>
-                    <h3 class="text-[10px] font-bold text-purple-400 mb-2 uppercase tracking-widest">🎁 道具-扭蛋 (商店庫存)</h3>
-                    <div id="gacha-items-list" class="space-y-1"></div>
-                </section>
-            </div>
-
-            <section>
-                <h3 class="text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest flex items-center">
-                    <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>各隊剩餘扭蛋
-                </h3>
-                <div id="shop-capsules" class="grid grid-cols-4 gap-1 text-[10px]"></div>
-            </section>
-        </div>
-    </div>
-
     <div class="flex-1 column bg-slate-950 flex flex-col items-center">
-        <div class="text-white text-2xl font-black tracking-widest mb-4 mt-2">尼可恰：沙盤征服戰</div>
-        <div class="map-scaler">
+        <div class="text-white text-2xl font-black tracking-widest mb-2 mt-2">尼可恰：沙盤征服戰</div>
+        <div class="map-container">
             <div class="bg-slate-700 p-3 rounded-xl shadow-2xl">
                 <div id="game-map"></div>
+            </div>
+        </div>
+
+        <div class="w-full max-w-6xl mt-8 bg-slate-900/50 p-6 rounded-t-3xl border-t border-slate-800 overflow-y-visible">
+            <h2 class="text-xl font-bold text-blue-400 mb-6 flex items-center justify-center">
+                <span class="px-4 py-1 bg-slate-800 rounded-full border border-blue-500/30">🛒 商店與庫存狀況</span>
+            </h2>
+            
+            <div class="grid grid-cols-12 gap-6">
+                <div class="col-span-7">
+                    <h3 class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-widest flex items-center">
+                        <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>土地板塊庫存
+                    </h3>
+                    <div id="shop-tiles" class="grid grid-cols-4 gap-2"></div>
+                </div>
+
+                <div class="col-span-5 space-y-6">
+                    <div class="grid grid-cols-2 gap-4">
+                        <section>
+                            <h3 id="map-pool-header" class="text-[10px] font-bold text-amber-500 mb-2 uppercase tracking-widest text-center">📍 道具-地圖 (剩)</h3>
+                            <div id="map-items-list" class="space-y-1"></div>
+                        </section>
+                        <section>
+                            <h3 class="text-[10px] font-bold text-purple-400 mb-2 uppercase tracking-widest text-center">🎁 道具-扭蛋 (庫存)</h3>
+                            <div id="gacha-items-list" class="space-y-1"></div>
+                        </section>
+                    </div>
+
+                    <section>
+                        <h3 class="text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest flex items-center">
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>各隊剩餘扭蛋
+                        </h3>
+                        <div id="shop-capsules" class="grid grid-cols-4 gap-1 text-[10px]"></div>
+                    </section>
+                </div>
             </div>
         </div>
     </div>
@@ -109,7 +117,6 @@
 
         function isItem(r, c) { return SINGLE_ITEMS.some(it => it.r === r && it.c === c) || ITEM_GROUPS.some(g => g.some(p => p.r === r && p.c === c)); }
 
-        // 初始化地圖格子
         const mapEl = document.getElementById('game-map');
         for(let r=1; r<=GRID_SIZE; r++) {
             for(let c=1; c<=GRID_SIZE; c++) {
@@ -120,7 +127,6 @@
             }
         }
 
-        // 即時監聽資料庫
         db.ref().on('value', (snapshot) => {
             const root = snapshot.val();
             if(!root) return;
@@ -156,42 +162,34 @@
                 `;
             }
 
-            // 2. 道具-地圖上 (關鍵修正：同步管理者頁面的陣列池)
+            // 2. 道具-地圖上
             const mapElList = document.getElementById('map-items-list');
             mapElList.innerHTML = '';
-            
-            // 統計剩餘道具陣列
             const mapCounts = {};
             ALL_ITEM_NAMES.forEach(name => mapCounts[name] = 0);
-            
             const currentPool = data.itemPool || [];
             if (Array.isArray(currentPool)) {
-                currentPool.forEach(name => {
-                    if (mapCounts[name] !== undefined) mapCounts[name]++;
-                });
+                currentPool.forEach(name => { if (mapCounts[name] !== undefined) mapCounts[name]++; });
             }
-
             ALL_ITEM_NAMES.forEach(name => {
                 const qty = mapCounts[name];
                 const textStyle = qty > 0 ? "text-amber-500 font-bold" : "text-slate-600";
                 mapElList.innerHTML += `
-                    <div class="bg-slate-900/50 px-2 py-1 rounded flex justify-between items-center text-[10px] border border-slate-700/40">
+                    <div class="bg-slate-900 px-2 py-1 rounded flex justify-between items-center text-[10px] border border-slate-700/40">
                         <span>${ITEM_ICONS[name]} ${name}</span>
                         <span class="font-mono ${textStyle}">${qty}</span>
                     </div>
                 `;
             });
-            // 更新標題顯示剩餘總數
-            const totalOnMap = currentPool.length || 0;
-            document.getElementById('map-pool-header').textContent = `📍 道具-地圖上 (剩 ${totalOnMap})`;
+            document.getElementById('map-pool-header').textContent = `📍 道具-地圖上 (剩 ${currentPool.length || 0})`;
 
-            // 3. 道具-扭蛋 (商店庫存)
+            // 3. 道具-扭蛋
             const gachaElList = document.getElementById('gacha-items-list');
             gachaElList.innerHTML = '';
             ALL_ITEM_NAMES.forEach(name => {
                 const qty = (store.items && store.items[name] !== undefined) ? store.items[name] : 0;
                 gachaElList.innerHTML += `
-                    <div class="bg-slate-900/50 px-2 py-1 rounded flex justify-between items-center text-[10px] border border-slate-700/40">
+                    <div class="bg-slate-900 px-2 py-1 rounded flex justify-between items-center text-[10px] border border-slate-700/40">
                         <span>${ITEM_ICONS[name]} ${name}</span>
                         <span class="font-mono text-purple-400 font-bold">${qty}</span>
                     </div>
