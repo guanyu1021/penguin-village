@@ -15,75 +15,86 @@
         .preview-valid { background-color: rgba(34, 197, 94, 0.6) !important; }
         .preview-invalid { background-color: rgba(239, 68, 68, 0.6) !important; }
         .preview-remove { background-color: rgba(255, 255, 255, 0.5) !important; outline: 2px solid white; }
-        .sidebar { height: 100vh; overflow-y: auto; background-color: #1e293b; color: white; }
+        
+        /* 側邊欄滾動條美化 */
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #1e293b; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+
         #game-map { display: grid; grid-template-columns: repeat(32, 22px); background-color: #334155; padding: 4px; gap: 1px; }
         .base-text { font-weight: 900; color: black; text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0px 2px 0 #fff, 0px -2px 0 #fff, 2px 0px 0 #fff, -2px 0px 0 #fff; z-index: 10; }
         @keyframes slot-glow { 0% { transform: scale(1); box-shadow: 0 0 0px #facc15; } 50% { transform: scale(1.1); box-shadow: 0 0 20px #facc15; } 100% { transform: scale(1); box-shadow: 0 0 0px #facc15; } }
         .slot-active { animation: slot-glow 0.2s infinite; color: #facc15; }
-        .main-content { flex: 1; height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 2rem; overflow-y: auto; }
 
-        /* 板塊調色盤新樣式 */
-        .tile-btn { position: relative; background: #334155; border: 2px solid #475569; border-radius: 6px; padding: 4px; transition: all 0.2s; height: 64px; display: flex; align-items: center; justify-content: center; }
+        /* 板塊調色盤樣式 */
+        .tile-btn { position: relative; background: #334155; border: 2px solid #475569; border-radius: 6px; padding: 4px; transition: all 0.2s; height: 50px; display: flex; align-items: center; justify-content: center; }
         .tile-btn:hover { border-color: #3b82f6; background: #1e293b; }
         .tile-btn.active { border-color: #3b82f6; background: #1e3a8a; box-shadow: 0 0 10px rgba(59,130,246,0.5); }
-        .mini-grid { display: grid; grid-template-columns: repeat(4, 8px); grid-template-rows: repeat(3, 8px); gap: 1px; pointer-events: none; }
-        .mini-dot { width: 8px; height: 8px; background: #475569; border-radius: 1px; }
+        .mini-grid { display: grid; grid-template-columns: repeat(4, 6px); grid-template-rows: repeat(3, 6px); gap: 1px; pointer-events: none; }
+        .mini-dot { width: 6px; height: 6px; background: #475569; border-radius: 1px; }
         .mini-dot.active { background: #60a5fa; }
-        .tile-id { position: absolute; top: 1px; left: 3px; font-size: 10px; color: #94a3b8; font-family: monospace; }
+        .tile-id { position: absolute; top: 1px; left: 3px; font-size: 9px; color: #94a3b8; font-family: monospace; }
     </style>
 </head>
-<body class="bg-slate-900 flex h-screen overflow-hidden">
+<body class="bg-slate-900 flex h-screen overflow-hidden text-slate-200">
 
-    <div class="w-96 p-4 sidebar flex flex-col gap-4 shrink-0 shadow-2xl border-r border-slate-700">
-        <h1 class="text-xl font-bold text-red-400 border-b border-slate-600 pb-2">管理者系統 V10.5</h1>
+    <div class="w-72 p-4 bg-slate-800 flex flex-col gap-4 shrink-0 border-r border-slate-700 custom-scroll overflow-y-auto">
+        <h1 class="text-lg font-bold text-red-400 border-b border-slate-700 pb-2">管理者系統 V10.5</h1>
         
         <div>
-            <label class="block text-sm mb-1 text-slate-400 font-bold">控制小分隊</label>
-            <select id="team-select" onchange="changeTeam(this.value)" class="w-full p-2 bg-slate-700 rounded border border-slate-500 text-white font-bold outline-none"></select>
+            <label class="block text-xs mb-1 text-slate-400 font-bold">控制小分隊</label>
+            <select id="team-select" onchange="changeTeam(this.value)" class="w-full p-2 bg-slate-700 rounded border border-slate-600 text-white font-bold text-sm outline-none"></select>
         </div>
 
         <div class="flex flex-col gap-2">
-            <label class="block text-sm text-slate-400 font-bold">操作模式</label>
+            <label class="block text-xs text-slate-400 font-bold">操作模式</label>
             <div class="grid grid-cols-3 gap-1">
-                <button id="mode-place" onclick="setMode('place')" class="py-2 rounded font-bold bg-blue-600 text-white text-sm">放置</button>
-                <button id="mode-stone" onclick="setMode('stone')" class="py-2 rounded font-bold bg-slate-600 text-white text-sm">石頭</button>
-                <button id="mode-remove" onclick="setMode('remove')" class="py-2 rounded font-bold bg-slate-600 text-white text-sm">移除</button>
+                <button id="mode-place" onclick="setMode('place')" class="py-1.5 rounded font-bold bg-blue-600 text-white text-xs">放置</button>
+                <button id="mode-stone" onclick="setMode('stone')" class="py-1.5 rounded font-bold bg-slate-600 text-white text-xs">石頭</button>
+                <button id="mode-remove" onclick="setMode('remove')" class="py-1.5 rounded font-bold bg-slate-600 text-white text-xs">移除</button>
             </div>
         </div>
 
         <div>
-            <label class="block text-sm mb-2 text-slate-400 font-bold">選擇板塊 <span class="text-[10px] text-slate-500 ml-2">快捷鍵: R旋轉 / F鏡射</span></label>
-            <div id="tile-palette" class="grid grid-cols-4 gap-2"></div>
+            <label class="block text-xs mb-2 text-slate-400 font-bold">選擇板塊 <span class="text-[9px] text-slate-500">R旋轉/F鏡射</span></label>
+            <div id="tile-palette" class="grid grid-cols-3 gap-1.5"></div>
         </div>
 
-        <div class="bg-slate-800 p-3 rounded-lg border border-slate-700">
-            <h2 class="font-bold text-xs mb-2 text-blue-300 flex justify-between">
-                <span>剩餘道具池 (同步至檢視者)</span>
+        <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700 mt-auto">
+            <h2 class="font-bold text-[10px] mb-2 text-blue-300 flex justify-between">
+                <span>剩餘道具池</span>
                 <span id="total-items-count" class="text-slate-500">0</span>
             </h2>
-            <div id="item-inventory" class="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-300"></div>
-        </div>
-
-        <div class="flex-1 overflow-y-auto pr-1">
-            <h2 class="font-bold text-sm mb-2 text-yellow-500 border-b border-slate-700 pb-1 text-center">🏆 即時計分榜</h2>
-            <div id="score-board" class="text-[11px] space-y-2"></div>
+            <div id="item-inventory" class="grid grid-cols-1 gap-y-1 text-[10px] text-slate-400"></div>
         </div>
         
-        <button onclick="resetGameAction()" class="mt-4 py-2 bg-red-900 hover:bg-red-800 text-white rounded text-xs font-bold transition-colors">重置全場數據</button>
+        <button onclick="resetGameAction()" class="py-2 bg-red-900/50 hover:bg-red-800 text-red-200 rounded text-[10px] font-bold transition-colors border border-red-800">重置全場數據</button>
     </div>
 
-    <div class="main-content">
-        <div id="status-display" class="mb-6 px-6 py-2 rounded-full bg-slate-800 text-white font-bold text-xl shadow-lg border-2 border-slate-600 min-w-[400px] text-center">
-            正在連線至資料庫...
+    <div class="w-64 p-4 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 shadow-xl">
+        <h2 class="font-bold text-sm mb-4 text-yellow-500 border-b border-slate-700 pb-2 text-center flex items-center justify-center gap-2">
+            🏆 即時計分榜
+        </h2>
+        <div id="score-board" class="flex-1 overflow-y-auto pr-1 space-y-2 custom-scroll">
+            </div>
+    </div>
+
+    <div class="flex-1 h-screen flex flex-col items-center p-4 overflow-hidden relative">
+        <div id="status-display" class="mb-4 px-6 py-2 rounded-full bg-slate-800 text-white font-bold text-lg shadow-lg border border-slate-600 z-10">
+            正在連線...
         </div>
         
-        <div class="bg-slate-700 p-2 rounded shadow-2xl scale-90 origin-top">
+        <div class="bg-slate-800 p-2 rounded-lg shadow-2xl scale-[0.82] origin-top transition-transform">
             <div id="game-map"></div>
+        </div>
+
+        <div class="absolute bottom-4 right-4 text-[10px] text-slate-500 bg-slate-800/80 px-3 py-1 rounded">
+            按住 R 旋轉板塊，按住 F 水平鏡射
         </div>
     </div>
 
     <div id="item-modal" class="fixed inset-0 bg-black/80 hidden z-50 flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-slate-800 border-4 border-yellow-500 p-8 rounded-3xl text-center max-w-sm w-full shadow-lg">
+        <div class="bg-slate-800 border-4 border-yellow-500 p-8 rounded-3xl text-center max-w-sm w-full">
             <div id="slot-machine" class="mb-6 h-32 flex items-center justify-center bg-slate-900 rounded-2xl border-2 border-slate-700">
                 <span id="modal-icon" class="text-6xl">🎁</span>
             </div>
@@ -97,6 +108,7 @@
     </div>
 
     <script>
+        // --- Firebase & 變數設定 (延續 V10.5) ---
         const firebaseConfig = {
             apiKey: "AIzaSyBBufDrt_ReM-5qLeQyJs2nXAwdMO_TbC4",
             authDomain: "sunflower-b5be6.firebaseapp.com",
@@ -121,8 +133,8 @@
         let gameState = { mapData: {}, placedTiles: [], teamInfo: [], itemPool: [], deadItems: [], triggeredGroups: [] };
         let currentTeamIdx = 0, currentShapeIdx = 1, currentShape = TILE_DEFS[1], currentMode = 'place', isSpinning = false;
 
+        // --- 初始化 UI ---
         function initUI() {
-            // 隊伍選單
             const select = document.getElementById('team-select');
             select.innerHTML = '';
             for(let i=0; i<16; i++) {
@@ -132,15 +144,12 @@
                 select.appendChild(opt);
             }
             
-            // 板塊調色盤 (包含形狀預覽)
             const palette = document.getElementById('tile-palette');
             palette.innerHTML = '';
             Object.keys(TILE_DEFS).forEach(k => {
                 const b = document.createElement('button');
                 b.className = `tile-btn ${parseInt(k)===currentShapeIdx?'active':''}`;
                 b.id = `tile-btn-${k}`;
-                
-                // 產生小預覽圖
                 let miniHtml = `<span class="tile-id">${k}</span><div class="mini-grid">`;
                 for(let r=0; r<3; r++) {
                     for(let c=0; c<4; c++) {
@@ -149,7 +158,6 @@
                     }
                 }
                 miniHtml += `</div>`;
-                
                 b.innerHTML = miniHtml;
                 b.onclick = () => { 
                     currentShapeIdx = parseInt(k); 
@@ -161,7 +169,6 @@
                 palette.appendChild(b);
             });
 
-            // 地圖格子
             const mapEl = document.getElementById('game-map');
             mapEl.innerHTML = '';
             for(let r=1; r<=GRID_SIZE; r++) {
@@ -176,21 +183,14 @@
             }
         }
 
+        // --- 其餘功能邏輯 (維持不變) ---
         function startListening() {
             db.ref('sandtable').on('value', (snapshot) => {
                 const val = snapshot.val();
                 if (val && val.teamInfo) {
-                    gameState = {
-                        ...val,
-                        mapData: val.mapData || {},
-                        placedTiles: val.placedTiles || [],
-                        deadItems: val.deadItems || [],
-                        triggeredGroups: val.triggeredGroups || []
-                    };
+                    gameState = { ...val, mapData: val.mapData || {}, placedTiles: val.placedTiles || [], deadItems: val.deadItems || [], triggeredGroups: val.triggeredGroups || [] };
                     renderAll();
-                } else {
-                    silentReset();
-                }
+                } else { silentReset(); }
             });
         }
 
@@ -207,10 +207,7 @@
             });
         }
 
-        function resetGameAction() {
-            if(confirm("確定要完全重置遊戲嗎？所有進度將消失！")) silentReset();
-        }
-
+        function resetGameAction() { if(confirm("確定要完全重置遊戲嗎？")) silentReset(); }
         function renderAll() { renderMap(); updateScores(); updateItemInventory(); resetStatusDisplay(); }
 
         function renderMap() {
@@ -221,7 +218,6 @@
                     if(!el) continue;
                     const data = mapData[`${r}-${c}`];
                     el.className = 'grid-cell'; el.textContent = ""; el.style.backgroundColor = ""; el.style.boxShadow = "";
-                    
                     if(data) {
                         if(data.type === 'stone') { el.classList.add('cell-stone'); el.textContent = "🪨"; } 
                         else {
@@ -229,9 +225,7 @@
                             el.style.backgroundColor = team ? team.color : "#444";
                             const tile = (gameState.placedTiles || []).find(t => t.id === data.tileId);
                             if(tile) applyBorder(el, r, c, tile.coords);
-                            if(team && team.baseCoord?.r === r && team.baseCoord?.c === c) {
-                                el.innerHTML = `<span class="base-text">${team.id}</span>`;
-                            }
+                            if(team && team.baseCoord?.r === r && team.baseCoord?.c === c) el.innerHTML = `<span class="base-text">${team.id}</span>`;
                         }
                     } else {
                         if(BASE_LOCS.find(b => b.r === r && b.c === c)) el.classList.add('cell-base-unclaimed');
@@ -253,37 +247,32 @@
         }
 
         function changeTeam(val) { currentTeamIdx = parseInt(val); resetStatusDisplay(); }
-        function setMode(mode) { currentMode = mode; document.querySelectorAll('[id^="mode-"]').forEach(b => b.className = b.id === `mode-${mode}` ? 'py-2 rounded font-bold bg-blue-600 text-white text-sm' : 'py-2 rounded font-bold bg-slate-600 text-white text-sm'); }
+        function setMode(mode) { currentMode = mode; document.querySelectorAll('[id^="mode-"]').forEach(b => b.className = b.id === `mode-${mode}` ? 'py-1.5 rounded font-bold bg-blue-600 text-white text-xs' : 'py-1.5 rounded font-bold bg-slate-600 text-white text-xs'); }
         function isItem(r, c) { return SINGLE_ITEMS.some(it => it.r === r && it.c === c) || ITEM_GROUPS.some(g => g.some(p => p.r === r && p.c === c)); }
 
         function handlePreview(r, c) {
             document.querySelectorAll('.grid-cell').forEach(el => el.classList.remove('preview-valid', 'preview-invalid', 'preview-remove'));
             const team = (gameState.teamInfo || [])[currentTeamIdx];
             if(!team) return;
-
             const mapData = gameState.mapData || {};
             const statusBox = document.getElementById('status-display');
 
             if(currentMode === 'remove') {
                 const data = mapData[`${r}-${c}`];
                 if(data) {
-                    statusBox.textContent = `當前：${team.id} 小隊 (移除模式)`;
+                    statusBox.textContent = `當前：${team.id} (移除模式)`;
                     if(data.type === 'stone') document.getElementById(`c-${r}-${c}`).classList.add('preview-remove');
                     else if(data.teamId === team.id) {
                         const tile = (gameState.placedTiles || []).find(t => t.id === data.tileId);
                         tile?.coords.forEach(p => document.getElementById(`c-${p.r}-${p.c}`)?.classList.add('preview-remove'));
                     }
-                } else {
-                    statusBox.textContent = `當前：${team.id} 小隊 (請點擊板塊移除)`;
                 }
             } else if(currentMode === 'stone') {
-                statusBox.textContent = `當前：${team.id} 小隊 (放置石頭)`;
                 const cell = document.getElementById(`c-${r}-${c}`);
                 if(cell) cell.classList.add(!mapData[`${r}-${c}`] ? 'preview-valid' : 'preview-invalid');
             } else {
                 const legality = checkLegality(r, c, team);
-                statusBox.textContent = `當前：${team.id} 小隊 (${legality.msg})`;
-                
+                statusBox.textContent = `當前：${team.id} (${legality.msg})`;
                 currentShape.forEach(([dr, dc]) => {
                     const nr = r + dr, nc = c + dc;
                     const cell = document.getElementById(`c-${nr}-${nc}`);
@@ -296,15 +285,15 @@
             const mapData = gameState.mapData || {};
             if(!team.baseSelected) {
                 const isBase = BASE_LOCS.find(b => b.r === r && b.c === c);
-                if(isBase && !mapData[`${r}-${c}`]) return {valid: true, msg: "可選為基地"};
-                return {valid: false, msg: "請先點擊紅色格選擇基地"};
+                if(isBase && !mapData[`${r}-${c}`]) return {valid: true, msg: "點擊設為基地"};
+                return {valid: false, msg: "請先選擇紅格基地"};
             }
             let hasConnect = false;
             let cellsToPlace = [];
             for(let [dr, dc] of currentShape) {
                 const nr = r + dr, nc = c + dc;
-                if(nr < 1 || nr > GRID_SIZE || nc < 1 || nc > GRID_SIZE) return {valid: false, msg: "超出地圖邊界"};
-                if(mapData[`${nr}-${nc}`]) return {valid: false, msg: "板塊位置重疊"};
+                if(nr < 1 || nr > GRID_SIZE || nc < 1 || nc > GRID_SIZE) return {valid: false, msg: "邊界外"};
+                if(mapData[`${nr}-${nc}`]) return {valid: false, msg: "位置重疊"};
                 cellsToPlace.push({r: nr, c: nc});
             }
             for(let pos of cellsToPlace) {
@@ -313,11 +302,11 @@
                     const neighbor = mapData[`${nr}-${nc}`];
                     if(neighbor && neighbor.type !== 'stone') {
                         if(neighbor.teamId === team.id) hasConnect = true;
-                        else return {valid: false, msg: "不能與他隊土地相鄰！"}; 
+                        else return {valid: false, msg: "不可鄰接他隊"}; 
                     }
                 }
             }
-            return hasConnect ? {valid: true, msg: "可以放置"} : {valid: false, msg: "板塊必須鄰接自己領土"};
+            return hasConnect ? {valid: true, msg: "可放置"} : {valid: false, msg: "須鄰接自己領土"};
         }
 
         async function handleClick(r, c) {
@@ -357,17 +346,10 @@
                             let gIdx = ITEM_GROUPS.findIndex(g => g.some(p => p.r === nr && p.c === nc));
                             if(gIdx !== -1) {
                                 if(!(gameState.triggeredGroups || []).includes(gIdx)) {
-                                    if(!gameState.triggeredGroups) gameState.triggeredGroups = [];
                                     gameState.triggeredGroups.push(gIdx); tCount++;
-                                    ITEM_GROUPS[gIdx].forEach(p => { 
-                                        if(!gameState.deadItems) gameState.deadItems = [];
-                                        if(!gameState.deadItems.includes(`${p.r},${p.c}`)) gameState.deadItems.push(`${p.r},${p.c}`); 
-                                    });
+                                    ITEM_GROUPS[gIdx].forEach(p => gameState.deadItems.push(`${p.r},${p.c}`));
                                 }
-                            } else { 
-                                if(!gameState.deadItems) gameState.deadItems = [];
-                                gameState.deadItems.push(`${nr},${nc}`); tCount++; 
-                            }
+                            } else { gameState.deadItems.push(`${nr},${nc}`); tCount++; }
                         }
                     });
                     gameState.placedTiles.push({ id: tileId, teamId: team.id, shapeIdx: currentShapeIdx, coords });
@@ -380,7 +362,6 @@
         function updateScores() {
             if(!gameState.teamInfo) return;
             const mapData = gameState.mapData || {};
-            
             gameState.teamInfo.forEach(t => {
                 let types = new Set();
                 (gameState.placedTiles || []).filter(pt => pt.teamId === t.id).forEach(pt => { if(pt.shapeIdx) types.add(pt.shapeIdx); });
@@ -393,33 +374,31 @@
                         }
                     }
                 }
-                const penaltyValue = (t.penalties || [false, false]).filter(p => p).length * 5;
-                const bonusValue = (t.bonusScore || 0);
-                const typeScore = types.size * 2;
-                const squareScore = n * n;
-                t.score = squareScore + typeScore - penaltyValue + bonusValue;
-                t.scoreDetail = `正方: ${n}² | 種類: ${types.size} | 道具: ${bonusValue-penaltyValue}`;
+                const pValue = (t.penalties || [false, false]).filter(p => p).length * 5;
+                const bonus = (t.bonusScore || 0);
+                t.score = (n * n) + (types.size * 2) - pValue + bonus;
+                t.scoreDetail = `正方:${n}² | 種類:${types.size} | 道具:${bonus-pValue}`;
             });
 
             const board = document.getElementById('score-board'); board.innerHTML = '';
             [...gameState.teamInfo].sort((a,b)=>b.score - a.score).forEach((t, i) => {
                 const p = t.penalties || [false, false];
                 const d = document.createElement('div');
-                d.className = 'p-2 bg-slate-800 rounded border-l-4'; d.style.borderColor = t.color;
+                d.className = 'p-2 bg-slate-800 rounded border-l-4 shadow'; d.style.borderColor = t.color;
                 d.innerHTML = `
-                    <div class="flex justify-between items-center font-bold text-white mb-0.5">
-                        <span class="truncate pr-2">${i+1}. ${t.id}</span> 
-                        <span class="text-yellow-400 text-sm">${t.score}</span>
+                    <div class="flex justify-between items-center font-bold text-white mb-0.5 text-xs">
+                        <span class="truncate pr-1">${i+1}. ${t.id}</span> 
+                        <span class="text-yellow-400">${t.score}</span>
                     </div>
-                    <div class="text-[9px] text-slate-400 mb-1 pb-1 border-b border-slate-700/50 italic">${t.scoreDetail}</div>
+                    <div class="text-[8px] text-slate-500 mb-1 italic">${t.scoreDetail}</div>
                     <div class="flex justify-between items-center">
-                        <div class="flex gap-2 items-center">
-                           <input type="checkbox" ${p[0]?'checked':''} onchange="togglePenalty('${t.id}', 0)" class="w-3 h-3 cursor-pointer">
-                           <input type="checkbox" ${p[1]?'checked':''} onchange="togglePenalty('${t.id}', 1)" class="w-3 h-3 cursor-pointer">
+                        <div class="flex gap-1">
+                           <input type="checkbox" ${p[0]?'checked':''} onchange="togglePenalty('${t.id}', 0)" class="w-3 h-3">
+                           <input type="checkbox" ${p[1]?'checked':''} onchange="togglePenalty('${t.id}', 1)" class="w-3 h-3">
                         </div>
                         <div class="flex gap-1">
-                            <button onclick="adjBonus('${t.id}', 1)" class="bg-slate-700 px-1 rounded text-white text-[10px]">+1</button>
-                            <button onclick="adjBonus('${t.id}', -1)" class="bg-slate-700 px-1 rounded text-white text-[10px]">-1</button>
+                            <button onclick="adjBonus('${t.id}', 1)" class="bg-slate-700 px-1 rounded text-white text-[9px]">+1</button>
+                            <button onclick="adjBonus('${t.id}', -1)" class="bg-slate-700 px-1 rounded text-white text-[9px]">-1</button>
                         </div>
                     </div>`;
                 board.appendChild(d);
@@ -454,8 +433,8 @@
             }, 50);
         }
 
-        function closeModal() { document.getElementById('item-modal').classList.add('hidden'); document.getElementById('modal-text').textContent = "準備好抽獎了嗎？"; }
-        function togglePenalty(teamId, pIdx) { const t = gameState.teamInfo.find(x => x.id === teamId); if(t) { if(!t.penalties) t.penalties = [false, false]; t.penalties[pIdx] = !t.penalties[pIdx]; db.ref('sandtable/teamInfo').set(gameState.teamInfo); } }
+        function closeModal() { document.getElementById('item-modal').classList.add('hidden'); }
+        function togglePenalty(tId, i) { const t = gameState.teamInfo.find(x => x.id === tId); if(t) { t.penalties[i] = !t.penalties[i]; db.ref('sandtable/teamInfo').set(gameState.teamInfo); } }
         function adjBonus(id, v) { const t = gameState.teamInfo.find(x => x.id === id); if(t) { t.bonusScore = (t.bonusScore || 0) + v; db.ref('sandtable/teamInfo').set(gameState.teamInfo); } }
         function updateItemInventory() { const counts = {}; (gameState.itemPool || []).forEach(i => counts[i] = (counts[i]||0)+1); const container = document.getElementById('item-inventory'); container.innerHTML = ''; Object.keys(ITEM_ICONS).forEach(i => { const div = document.createElement('div'); div.className = 'flex justify-between'; div.innerHTML = `<span>${ITEM_ICONS[i]} ${i}</span> <span>${counts[i]||0}</span>`; container.appendChild(div); }); document.getElementById('total-items-count').textContent = (gameState.itemPool || []).length; }
         function resetStatusDisplay() { if(gameState.teamInfo && gameState.teamInfo[currentTeamIdx]) document.getElementById('status-display').textContent = `當前：${gameState.teamInfo[currentTeamIdx].id} 小隊`; }
@@ -463,13 +442,12 @@
         function checkConnectivityAfterRemove(team, tileToRemove) {
             const mapData = gameState.mapData || {};
             const teamCells = Object.keys(mapData).filter(k => { const d = mapData[k]; return d.teamId === team.id && d.tileId !== tileToRemove.id; });
-            if(teamCells.length === 0) return true;
-            if(!team.baseCoord) return true;
+            if(teamCells.length === 0 || !team.baseCoord) return true;
             const queue = [`${team.baseCoord.r}-${team.baseCoord.c}`], visited = new Set(queue);
             let count = 0;
             while(queue.length > 0) {
-                const key = queue.shift();
-                const [r, c] = key.split('-').map(Number); count++;
+                const key = queue.shift(); count++;
+                const [r, c] = key.split('-').map(Number);
                 [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr, dc]) => {
                     const nKey = `${r+dr}-${c+dc}`;
                     if(teamCells.includes(nKey) && !visited.has(nKey)) { visited.add(nKey); queue.push(nKey); }
