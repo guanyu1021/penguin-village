@@ -20,8 +20,13 @@
 
     <header class="bg-slate-800 border-b border-slate-700 p-6 mb-8 sticky top-0 z-10 shadow-xl">
         <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">尼可恰商店管理系統</h1>
-            <div id="sync-status" class="text-xs bg-slate-700 px-3 py-1 rounded-full text-slate-400">同步中...</div>
+            <div>
+                <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">尼可恰商店管理系統</h1>
+                <div id="sync-status" class="text-[10px] bg-slate-700 px-2 py-0.5 rounded-full text-slate-400 inline-block mt-1">同步中...</div>
+            </div>
+            <button onclick="resetStoreAction()" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-lg">
+                重置商店數據
+            </button>
         </div>
     </header>
 
@@ -89,13 +94,39 @@
             startListening();
         }
 
+        // --- 新增重置全場數據功能 ---
+        function resetStoreAction() {
+            if (confirm("確定要重置【商店】所有庫存與扭蛋次數嗎？\n這將恢復到初始設定值。")) {
+                const initialTiles = {};
+                for(let i=1; i<=16; i++) {
+                    initialTiles[i] = TILE_LIMITS[i-1];
+                }
+
+                const initialItems = { ...ITEM_DATA };
+
+                const initialCapsules = {};
+                for(let i=0; i<16; i++) {
+                    const id = `${Math.floor(i/2)+1}${i%2===0?'A':'B'}`;
+                    initialCapsules[id] = 2;
+                }
+
+                db.ref('store').set({
+                    tiles: initialTiles,
+                    items: initialItems,
+                    capsules: initialCapsules
+                }).then(() => {
+                    alert("商店數據已重置！");
+                });
+            }
+        }
+
         function renderTiles() {
             const container = document.getElementById('tiles-container');
+            container.innerHTML = ''; // 清空重新渲染
             for (let i = 1; i <= 16; i++) {
                 const div = document.createElement('div');
                 div.className = "bg-slate-800 border border-slate-700 p-3 rounded-xl card-glow text-center flex flex-col items-center";
                 
-                // 板塊預覽小方格
                 let previewHtml = '<div class="tile-preview">';
                 for(let r=0; r<3; r++) {
                     for(let c=0; c<4; c++) {
@@ -122,6 +153,7 @@
 
         function renderItems() {
             const container = document.getElementById('items-container');
+            container.innerHTML = '';
             Object.keys(ITEM_DATA).forEach(name => {
                 const div = document.createElement('div');
                 div.className = "bg-slate-800 border border-slate-700 p-4 rounded-xl flex justify-between items-center card-glow";
@@ -145,6 +177,7 @@
 
         function renderCapsules() {
             const container = document.getElementById('capsule-container');
+            container.innerHTML = '';
             for(let i=0; i<16; i++) {
                 const id = `${Math.floor(i/2)+1}${i%2===0?'A':'B'}`;
                 const div = document.createElement('div');
@@ -163,21 +196,21 @@
 
         // --- 邏輯控制 ---
         function updateTile(id, delta) {
-            const current = storeData.tiles[id] || TILE_LIMITS[id-1];
+            const current = storeData.tiles[id] !== undefined ? storeData.tiles[id] : TILE_LIMITS[id-1];
             const max = TILE_LIMITS[id-1];
             const next = Math.max(0, Math.min(max, current + delta));
             db.ref(`store/tiles/${id}`).set(next);
         }
 
         function updateItem(name, delta) {
-            const current = storeData.items[name] || ITEM_DATA[name];
+            const current = storeData.items[name] !== undefined ? storeData.items[name] : ITEM_DATA[name];
             const max = ITEM_DATA[name];
             const next = Math.max(0, Math.min(max, current + delta));
             db.ref(`store/items/${name}`).set(next);
         }
 
         function updateCapsule(teamId, delta) {
-            const current = storeData.capsules[teamId] || 2;
+            const current = storeData.capsules[teamId] !== undefined ? storeData.capsules[teamId] : 2;
             const next = Math.max(0, current + delta);
             db.ref(`store/capsules/${teamId}`).set(next);
         }
@@ -191,14 +224,12 @@
                 storeData.items = data.items || {};
                 storeData.capsules = data.capsules || {};
 
-                // 更新 UI
                 for (let i = 1; i <= 16; i++) {
                     const qty = storeData.tiles[i] !== undefined ? storeData.tiles[i] : TILE_LIMITS[i-1];
                     const input = document.getElementById(`tile-qty-${i}`);
                     const priceEl = document.getElementById(`price-${i}`);
                     if(input) input.value = qty;
                     
-                    // 價格邏輯: 剩餘數量 <= 初始一半 -> 價格 +2
                     const isHalfOrLess = qty <= (TILE_LIMITS[i-1] / 2);
                     const currentPrice = isHalfOrLess ? TILE_PRICES[i-1] + 2 : TILE_PRICES[i-1];
                     if(priceEl) {
