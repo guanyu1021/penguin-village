@@ -20,12 +20,10 @@
 
         .base-text { font-weight: 900; color: black; text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0px 2px 0 #fff, 0px -2px 0 #fff, 2px 0px 0 #fff, -2px 0px 0 #fff; z-index: 10; }
         
-        /* 1. 板塊形狀圖樣放大修正 */
         .mini-tile-grid { display: grid; grid-template-columns: repeat(4, 9px); grid-template-rows: repeat(3, 9px); gap: 1px; }
         .mini-cell { width: 9px; height: 9px; background: #334155; border-radius: 1px; }
         .mini-cell.active { background: #60a5fa; }
 
-        /* 板塊卡片佈局調整 */
         .tile-card {
             display: grid;
             grid-template-areas: 
@@ -33,7 +31,7 @@
                 "shape price";
             grid-template-columns: 1fr auto;
             grid-template-rows: auto 1fr;
-            min-height: 85px; /* 稍微拉高以適應放大的圖案 */
+            min-height: 85px;
         }
     </style>
 </head>
@@ -57,7 +55,7 @@
 
             <div class="grid grid-cols-2 gap-4">
                 <section>
-                    <h3 class="text-[10px] font-bold text-amber-500 mb-2 uppercase tracking-widest">📍 道具-地圖上 (地圖剩餘)</h3>
+                    <h3 id="map-pool-header" class="text-[10px] font-bold text-amber-500 mb-2 uppercase tracking-widest">📍 道具-地圖上 (剩餘)</h3>
                     <div id="map-items-list" class="space-y-1"></div>
                 </section>
                 <section>
@@ -111,6 +109,7 @@
 
         function isItem(r, c) { return SINGLE_ITEMS.some(it => it.r === r && it.c === c) || ITEM_GROUPS.some(g => g.some(p => p.r === r && p.c === c)); }
 
+        // 初始化地圖格子
         const mapEl = document.getElementById('game-map');
         for(let r=1; r<=GRID_SIZE; r++) {
             for(let c=1; c<=GRID_SIZE; c++) {
@@ -121,20 +120,20 @@
             }
         }
 
+        // 即時監聽資料庫
         db.ref().on('value', (snapshot) => {
             const root = snapshot.val();
             if(!root) return;
             const data = root.sandtable || {};
             const store = root.store || {};
 
-            // 1. 板塊區更新：渲染放大的預覽圖
+            // 1. 板塊商店區
             const tileContainer = document.getElementById('shop-tiles');
             tileContainer.innerHTML = '';
             for(let i=1; i<=16; i++) {
                 const qty = (store.tiles && store.tiles[i] !== undefined) ? store.tiles[i] : TILE_LIMITS[i-1];
                 const isHalf = qty <= (TILE_LIMITS[i-1] / 2);
                 const price = isHalf ? TILE_PRICES[i-1] + 2 : TILE_PRICES[i-1];
-                
                 const stateColor = isHalf ? 'text-red-400 font-black' : 'text-emerald-400 font-bold';
                 const priceColor = isHalf ? 'text-red-400' : 'text-yellow-500';
 
@@ -157,40 +156,54 @@
                 `;
             }
 
-            // 2. 道具數據同步修正
-            // 地圖道具：同步讀取 sandtable/itemPool (管理者頁面的產出池)
+            // 2. 道具-地圖上 (關鍵修正：同步管理者頁面的陣列池)
             const mapElList = document.getElementById('map-items-list');
             mapElList.innerHTML = '';
+            
+            // 統計剩餘道具陣列
+            const mapCounts = {};
+            ALL_ITEM_NAMES.forEach(name => mapCounts[name] = 0);
+            
+            const currentPool = data.itemPool || [];
+            if (Array.isArray(currentPool)) {
+                currentPool.forEach(name => {
+                    if (mapCounts[name] !== undefined) mapCounts[name]++;
+                });
+            }
+
             ALL_ITEM_NAMES.forEach(name => {
-                const itemSource = data.itemPool || {}; 
-                const qty = itemSource[name] !== undefined ? itemSource[name] : 0;
+                const qty = mapCounts[name];
+                const textStyle = qty > 0 ? "text-amber-500 font-bold" : "text-slate-600";
                 mapElList.innerHTML += `
-                    <div class="bg-slate-900/50 px-2 py-1 rounded flex justify-between items-center text-[10px]">
+                    <div class="bg-slate-900/50 px-2 py-1 rounded flex justify-between items-center text-[10px] border border-slate-700/40">
                         <span>${ITEM_ICONS[name]} ${name}</span>
-                        <span class="font-mono text-amber-500 font-bold">${qty}</span>
+                        <span class="font-mono ${textStyle}">${qty}</span>
                     </div>
                 `;
             });
+            // 更新標題顯示剩餘總數
+            const totalOnMap = currentPool.length || 0;
+            document.getElementById('map-pool-header').textContent = `📍 道具-地圖上 (剩 ${totalOnMap})`;
 
-            // 扭蛋道具：保持同步 store/items
+            // 3. 道具-扭蛋 (商店庫存)
             const gachaElList = document.getElementById('gacha-items-list');
             gachaElList.innerHTML = '';
             ALL_ITEM_NAMES.forEach(name => {
                 const qty = (store.items && store.items[name] !== undefined) ? store.items[name] : 0;
                 gachaElList.innerHTML += `
-                    <div class="bg-slate-900/50 px-2 py-1 rounded flex justify-between items-center text-[10px]">
+                    <div class="bg-slate-900/50 px-2 py-1 rounded flex justify-between items-center text-[10px] border border-slate-700/40">
                         <span>${ITEM_ICONS[name]} ${name}</span>
                         <span class="font-mono text-purple-400 font-bold">${qty}</span>
                     </div>
                 `;
             });
 
-            // 3. 隊伍扭蛋
+            // 4. 各隊剩餘扭蛋
             const capContainer = document.getElementById('shop-capsules');
             capContainer.innerHTML = '';
             for(let i=0; i<16; i++) {
                 const id = `${Math.floor(i/2)+1}${i%2===0?'A':'B'}`;
-                const qty = (store.capsules && store.capsules[id] !== undefined) ? store.capsules[id] : 2;
+                const qty = (store.capsules && store.capsules[id] !== undefined) ? store.capsules[id] : 0;
                 capContainer.innerHTML += `
                     <div class="bg-slate-700 p-1 rounded text-center border border-slate-600">
                         <div class="text-slate-400 font-bold">${id}</div>
@@ -199,7 +212,7 @@
                 `;
             }
 
-            // 4. 排行榜 (邏輯不變)
+            // 5. 排行榜
             const teamInfo = data.teamInfo || [];
             teamInfo.forEach(t => {
                 let types = new Set();
@@ -233,7 +246,7 @@
                 `;
             });
 
-            // 5. 地圖渲染 (邏輯不變)
+            // 6. 地圖渲染
             for(let r=1; r<=GRID_SIZE; r++) {
                 for(let c=1; c<=GRID_SIZE; c++) {
                     const el = document.getElementById(`v-${r}-${c}`);
