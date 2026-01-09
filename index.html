@@ -10,7 +10,6 @@
         body, html { height: 100vh; margin: 0; overflow: hidden; background-color: #0f172a; font-family: sans-serif; }
         .column { height: 100vh; overflow-y: auto; padding: 1rem; scrollbar-width: thin; }
         
-        /* 地圖縮小比例 */
         .map-scaler { transform: scale(0.75); transform-origin: top center; }
         .grid-cell { width: 22px; height: 22px; border: 0.1px solid #444; font-size: 10px; display: flex; align-items: center; justify-content: center; position: relative; }
         .cell-base-unclaimed { background-color: #ef4444; color: white; border: 2px solid #b91c1c; }
@@ -21,10 +20,21 @@
 
         .base-text { font-weight: 900; color: black; text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 0px 2px 0 #fff, 0px -2px 0 #fff, 2px 0px 0 #fff, -2px 0px 0 #fff; z-index: 10; }
         
-        /* 板塊微縮預覽 (因應4欄排列縮小尺寸) */
-        .mini-tile-grid { display: grid; grid-template-columns: repeat(4, 4px); grid-template-rows: repeat(3, 4px); gap: 1px; margin-bottom: 4px; }
+        /* 板塊微縮預覽 - 放在左下角 */
+        .mini-tile-grid { display: grid; grid-template-columns: repeat(4, 4px); grid-template-rows: repeat(3, 4px); gap: 1px; }
         .mini-cell { width: 4px; height: 4px; background: #334155; border-radius: 0.5px; }
         .mini-cell.active { background: #60a5fa; }
+
+        /* 板塊卡片佈局 */
+        .tile-card {
+            display: grid;
+            grid-template-areas: 
+                "id qty"
+                "shape price";
+            grid-template-columns: 1fr auto;
+            grid-template-rows: auto 1fr;
+            min-height: 60px;
+        }
     </style>
 </head>
 <body class="flex text-slate-100">
@@ -39,24 +49,19 @@
         
         <div class="space-y-6">
             <section>
-                <h3 class="text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest flex items-center">
+                <h3 class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-widest flex items-center">
                     <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>土地板塊庫存 (4x4)
                 </h3>
-                <div id="shop-tiles" class="grid grid-cols-4 gap-2">
-                    </div>
+                <div id="shop-tiles" class="grid grid-cols-4 gap-2"></div>
             </section>
 
             <div class="grid grid-cols-2 gap-4">
                 <section>
-                    <h3 class="text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest flex items-center">
-                        <span class="w-2 h-2 bg-amber-500 rounded-full mr-2"></span>道具-地圖上
-                    </h3>
+                    <h3 class="text-[10px] font-bold text-amber-500 mb-2 uppercase tracking-widest">📍 道具-地圖上</h3>
                     <div id="map-items-list" class="space-y-1"></div>
                 </section>
                 <section>
-                    <h3 class="text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest flex items-center">
-                        <span class="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>道具-扭蛋
-                    </h3>
+                    <h3 class="text-[10px] font-bold text-purple-400 mb-2 uppercase tracking-widest">🎁 道具-扭蛋</h3>
                     <div id="gacha-items-list" class="space-y-1"></div>
                 </section>
             </div>
@@ -65,8 +70,7 @@
                 <h3 class="text-xs font-bold text-slate-400 mb-2 uppercase tracking-widest flex items-center">
                     <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>各隊剩餘扭蛋
                 </h3>
-                <div id="shop-capsules" class="grid grid-cols-4 gap-1 text-[10px]">
-                    </div>
+                <div id="shop-capsules" class="grid grid-cols-4 gap-1 text-[10px]"></div>
             </section>
         </div>
     </div>
@@ -94,22 +98,19 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // 靜態定義
         const TILE_DEFS = { 1: [[0,0]], 2: [[0,0],[0,1]], 3: [[0,0],[0,1],[1,1]], 4: [[0,0],[0,1],[0,2]], 5: [[0,0],[0,1],[0,2],[1,2]], 6: [[0,0],[0,1],[0,2],[0,3]], 7: [[0,0],[0,1],[0,2],[1,1]], 8: [[0,0],[0,1],[1,1],[1,2]], 9: [[0,0],[1,0],[1,1],[1,2],[0,2]], 10: [[0,0],[1,0],[1,1],[1,2],[2,2]], 11: [[0,0],[1,0],[1,1],[1,2],[2,1]], 12: [[0,0],[0,1],[0,2],[1,1],[2,1]], 13: [[0,0],[1,0],[2,0],[2,1],[2,2]], 14: [[0,0],[0,1],[0,2],[0,3],[1,1]], 15: [[0,0],[0,1],[0,2],[1,2],[1,3]], 16: [[0,0],[0,1],[1,1],[1,2],[2,2]] };
         const TILE_LIMITS = [40,32,16,16,12,12,12,12,10,10,10,10,10,10,10,10];
         const TILE_PRICES = [3,4,4,5,5,5,5,4,5,5,4,5,6,5,5,5];
         const ITEM_ICONS = { "石頭":"🪨", "拆除卡":"🔨", "搶奪卡":"🔫", "防禦卡":"🛡️", "干擾卡":"🌀", "雙倍卡":"✖️2", "加分卡":"⭐" };
-        const MAP_ITEM_KEYS = ["石頭"];
-        const GACHA_ITEM_KEYS = ["拆除卡", "搶奪卡", "防禦卡", "干擾卡", "雙倍卡", "加分卡"];
+        const ALL_ITEM_NAMES = ["石頭", "拆除卡", "搶奪卡", "防禦卡", "干擾卡", "雙倍卡", "加分卡"];
 
         const GRID_SIZE = 32;
         const BASE_LOCS = [{r:4, c:4}, {r:4, c:12}, {r:4, c:21}, {r:4, c:29}, {r:12, c:4}, {r:12, c:12}, {r:12, c:21}, {r:12, c:29}, {r:21, c:4}, {r:21, c:12}, {r:21, c:21}, {r:21, c:29}, {r:29, c:4}, {r:29, c:12}, {r:29, c:21}, {r:29, c:29}];
         const SINGLE_ITEMS = [{r:1, c:8}, {r:1, c:25}, {r:8, c:1}, {r:8, c:8}, {r:8, c:25}, {r:8, c:32}, {r:25, c:1}, {r:25, c:8}, {r:25, c:25}, {r:25, c:32}, {r:32, c:8}, {r:32, c:25}];
-        const ITEM_GROUPS = [[{r:8, c:16}, {r:8, c:17}], [{r:16, c:8}, {r:17, c:8}], [{r:16, c:16}, {r:16, c:16}, {r:17, c:16}, {r:17, c:17}], [{r:16, c:25}, {r:17, c:25}], [{r:25, c:16}, {r:25, c:17}]];
+        const ITEM_GROUPS = [[{r:8, c:16}, {r:8, c:17}], [{r:16, c:8}, {r:17, c:8}], [{r:16, c:16}, {r:16, c:17}, {r:17, c:16}, {r:17, c:17}], [{r:16, c:25}, {r:17, c:25}], [{r:25, c:16}, {r:25, c:17}]];
 
         function isItem(r, c) { return SINGLE_ITEMS.some(it => it.r === r && it.c === c) || ITEM_GROUPS.some(g => g.some(p => p.r === r && p.c === c)); }
 
-        // 初始化地圖節點
         const mapEl = document.getElementById('game-map');
         for(let r=1; r<=GRID_SIZE; r++) {
             for(let c=1; c<=GRID_SIZE; c++) {
@@ -126,7 +127,7 @@
             const data = root.sandtable || {};
             const store = root.store || {};
 
-            // 1. 渲染板塊 (4x4 排列)
+            // 1. 渲染板塊 (4x4 且四角定位)
             const tileContainer = document.getElementById('shop-tiles');
             tileContainer.innerHTML = '';
             for(let i=1; i<=16; i++) {
@@ -134,7 +135,7 @@
                 const isHalf = qty <= (TILE_LIMITS[i-1] / 2);
                 const price = isHalf ? TILE_PRICES[i-1] + 2 : TILE_PRICES[i-1];
                 
-                let miniGridHtml = '<div class="mini-tile-grid">';
+                let miniGridHtml = '<div class="mini-tile-grid mt-1">';
                 for(let r=0; r<3; r++){
                     for(let c=0; c<4; c++){
                         const active = TILE_DEFS[i].some(p => p[0]===r && p[1]===c);
@@ -144,45 +145,43 @@
                 miniGridHtml += '</div>';
 
                 tileContainer.innerHTML += `
-                    <div class="bg-slate-700/40 p-1.5 rounded border border-slate-600 flex flex-col items-center">
-                        ${miniGridHtml}
-                        <div class="flex flex-col items-center">
-                            <span class="text-[8px] text-slate-500 font-bold leading-none">#${i}</span>
-                            <span class="text-xs font-bold ${qty <= 5 ? 'text-red-400' : 'text-white'}">${qty}</span>
-                            <span class="text-[9px] ${isHalf ? 'text-red-400' : 'text-blue-300'} font-black">$${price}</span>
-                        </div>
+                    <div class="bg-slate-700/60 p-1.5 rounded border border-slate-500 tile-card">
+                        <div style="grid-area: id" class="text-[9px] text-slate-400 font-bold">#${i}</div>
+                        <div style="grid-area: qty" class="text-xs font-black text-right ${qty <= 5 ? 'text-red-400' : 'text-emerald-400'}">${qty}</div>
+                        <div style="grid-area: shape" class="flex items-end">${miniGridHtml}</div>
+                        <div style="grid-area: price" class="flex items-end justify-end text-[10px] font-black text-yellow-500">$${price}</div>
                     </div>
                 `;
             }
 
-            // 2. 道具庫存分類渲染
-            // 地圖道具 (從 sandtable/items 同步)
-            const mapList = document.getElementById('map-items-list');
-            mapList.innerHTML = '';
-            MAP_ITEM_KEYS.forEach(name => {
+            // 2. 道具分類顯示
+            // 地圖道具：與管理者頁面同步 (root.sandtable.items)
+            const mapElList = document.getElementById('map-items-list');
+            mapElList.innerHTML = '';
+            ALL_ITEM_NAMES.forEach(name => {
                 const qty = (data.items && data.items[name] !== undefined) ? data.items[name] : 0;
-                mapList.innerHTML += `
-                    <div class="bg-slate-900/50 p-2 rounded flex justify-between items-center text-xs">
-                        <span>${ITEM_ICONS[name] || ''} ${name}</span>
+                mapElList.innerHTML += `
+                    <div class="bg-slate-900/50 px-2 py-1 rounded flex justify-between items-center text-[10px]">
+                        <span>${ITEM_ICONS[name]} ${name}</span>
                         <span class="font-mono text-amber-500 font-bold">${qty}</span>
                     </div>
                 `;
             });
 
-            // 扭蛋道具 (從 store/items 同步)
-            const gachaList = document.getElementById('gacha-items-list');
-            gachaList.innerHTML = '';
-            GACHA_ITEM_KEYS.forEach(name => {
+            // 扭蛋道具：與商店頁面同步 (root.store.items)
+            const gachaElList = document.getElementById('gacha-items-list');
+            gachaElList.innerHTML = '';
+            ALL_ITEM_NAMES.forEach(name => {
                 const qty = (store.items && store.items[name] !== undefined) ? store.items[name] : 0;
-                gachaList.innerHTML += `
-                    <div class="bg-slate-900/50 p-2 rounded flex justify-between items-center text-xs">
-                        <span>${ITEM_ICONS[name] || ''} ${name}</span>
+                gachaElList.innerHTML += `
+                    <div class="bg-slate-900/50 px-2 py-1 rounded flex justify-between items-center text-[10px]">
+                        <span>${ITEM_ICONS[name]} ${name}</span>
                         <span class="font-mono text-purple-400 font-bold">${qty}</span>
                     </div>
                 `;
             });
 
-            // 3. 各隊扭蛋數
+            // 3. 隊伍扭蛋
             const capContainer = document.getElementById('shop-capsules');
             capContainer.innerHTML = '';
             for(let i=0; i<16; i++) {
@@ -196,7 +195,7 @@
                 `;
             }
 
-            // 4. 排行榜計算
+            // 4. 排行榜
             const teamInfo = data.teamInfo || [];
             teamInfo.forEach(t => {
                 let types = new Set();
@@ -230,7 +229,7 @@
                 `;
             });
 
-            // 5. 地圖渲染 (略，保持原有邏輯)
+            // 5. 地圖渲染
             for(let r=1; r<=GRID_SIZE; r++) {
                 for(let c=1; c<=GRID_SIZE; c++) {
                     const el = document.getElementById(`v-${r}-${c}`);
