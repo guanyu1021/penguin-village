@@ -274,21 +274,30 @@
             const team = (gameState.teamInfo || [])[currentTeamIdx];
             if(!team) return;
             const mapData = gameState.mapData || {};
+            const statusBox = document.getElementById('status-display');
 
             if(currentMode === 'remove') {
                 const data = mapData[`${r}-${c}`];
                 if(data) {
-                    if(data.type === 'stone') document.getElementById(`c-${r}-${c}`).classList.add('preview-remove');
-                    else if(data.teamId === team.id) {
+                    if(data.type === 'stone') {
+                        document.getElementById(`c-${r}-${c}`).classList.add('preview-remove');
+                        statusBox.textContent = "移除模式：點擊移除此石頭";
+                    } else if(data.teamId === team.id) {
                         const tile = (gameState.placedTiles || []).find(t => t.id === data.tileId);
                         tile?.coords.forEach(p => document.getElementById(`c-${p.r}-${p.c}`)?.classList.add('preview-remove'));
+                        statusBox.textContent = "移除模式：點擊移除己方板塊";
+                    } else {
+                        statusBox.textContent = "移除模式：只能移除己方或石頭";
                     }
                 }
             } else if(currentMode === 'stone') {
                 const cell = document.getElementById(`c-${r}-${c}`);
-                if(cell) cell.classList.add(!mapData[`${r}-${c}`] ? 'preview-valid' : 'preview-invalid');
+                const canPlace = !mapData[`${r}-${c}`];
+                if(cell) cell.classList.add(canPlace ? 'preview-valid' : 'preview-invalid');
+                statusBox.textContent = canPlace ? "石頭模式：可放置石頭" : "石頭模式：此處已有物體";
             } else {
                 const legality = checkLegality(r, c, team);
+                statusBox.textContent = `${team.id} 小隊：${legality.msg}`;
                 currentShape.forEach(([dr, dc]) => {
                     const nr = r + dr, nc = c + dc;
                     const cell = document.getElementById(`c-${nr}-${nc}`);
@@ -301,15 +310,15 @@
             const mapData = gameState.mapData || {};
             if(!team.baseSelected) {
                 const isBase = BASE_LOCS.find(b => b.r === r && b.c === c);
-                if(isBase && !mapData[`${r}-${c}`]) return {valid: true, msg: "點擊設為基地"};
-                return {valid: false, msg: "請先選擇紅格基地"};
+                if(isBase && !mapData[`${r}-${c}`]) return {valid: true, msg: "可選為基地"};
+                return {valid: false, msg: "請選紅色格作為基地"};
             }
             let hasConnect = false;
             let cellsToPlace = [];
             for(let [dr, dc] of currentShape) {
                 const nr = r + dr, nc = c + dc;
-                if(nr < 1 || nr > GRID_SIZE || nc < 1 || nc > GRID_SIZE) return {valid: false, msg: "邊界外"};
-                if(mapData[`${nr}-${nc}`]) return {valid: false, msg: "位置重疊"};
+                if(nr < 1 || nr > GRID_SIZE || nc < 1 || nc > GRID_SIZE) return {valid: false, msg: "超出邊界"};
+                if(mapData[`${nr}-${nc}`]) return {valid: false, msg: "位置已有重疊"};
                 cellsToPlace.push({r: nr, c: nc});
             }
             for(let pos of cellsToPlace) {
@@ -318,11 +327,11 @@
                     const neighbor = mapData[`${nr}-${nc}`];
                     if(neighbor && neighbor.type !== 'stone') {
                         if(neighbor.teamId === team.id) hasConnect = true;
-                        else return {valid: false, msg: "不可鄰接他隊"}; 
+                        else return {valid: false, msg: "禁止緊貼敵方領土"}; 
                     }
                 }
             }
-            return hasConnect ? {valid: true, msg: "可放置"} : {valid: false, msg: "須鄰接自己領土"};
+            return hasConnect ? {valid: true, msg: "位置合法"} : {valid: false, msg: "必須與領土相連"};
         }
 
         async function handleClick(r, c) {
@@ -424,19 +433,18 @@
 
         // --- 抽獎與其餘功能 (包含重置邏輯) ---
         function openLottery(count) {
-            // 每次開啟時，重置彈窗 UI 到初始狀態
             const icon = document.getElementById('modal-icon');
             const text = document.getElementById('modal-text');
             const startBtn = document.getElementById('start-draw-btn');
             const confirmBtn = document.getElementById('modal-confirm-btn');
 
-            icon.textContent = "🎁";               // 恢復初始圖示
+            icon.textContent = "🎁";
             icon.classList.remove('slot-active');
             document.getElementById('modal-title').textContent = `獲得 ${count} 次抽獎！`;
-            text.textContent = "準備好抽獎了嗎？";    // 恢復初始文字
+            text.textContent = "準備好抽獎了嗎？";
             
-            startBtn.classList.remove('hidden');   // 顯示開始按鈕
-            confirmBtn.classList.add('hidden');    // 隱藏確定按鈕
+            startBtn.classList.remove('hidden');
+            confirmBtn.classList.add('hidden');
             
             document.getElementById('item-modal').classList.remove('hidden');
         }
@@ -485,7 +493,13 @@
         function togglePenalty(tId, i) { const t = gameState.teamInfo.find(x => x.id === tId); if(t) { t.penalties[i] = !t.penalties[i]; db.ref('sandtable/teamInfo').set(gameState.teamInfo); } }
         function adjBonus(id, v) { const t = gameState.teamInfo.find(x => x.id === id); if(t) { t.bonusScore = (t.bonusScore || 0) + v; db.ref('sandtable/teamInfo').set(gameState.teamInfo); } }
         function updateItemInventory() { const counts = {}; (gameState.itemPool || []).forEach(i => counts[i] = (counts[i]||0)+1); const container = document.getElementById('item-inventory'); container.innerHTML = ''; Object.keys(ITEM_ICONS).forEach(i => { const div = document.createElement('div'); div.className = 'flex justify-between'; div.innerHTML = `<span>${ITEM_ICONS[i]} ${i}</span> <span>${counts[i]||0}</span>`; container.appendChild(div); }); document.getElementById('total-items-count').textContent = (gameState.itemPool || []).length; }
-        function resetStatusDisplay() { if(gameState.teamInfo && gameState.teamInfo[currentTeamIdx]) document.getElementById('status-display').textContent = `當前：${gameState.teamInfo[currentTeamIdx].id} 小隊`; }
+        
+        function resetStatusDisplay() { 
+            if(gameState.teamInfo && gameState.teamInfo[currentTeamIdx]) {
+                const team = gameState.teamInfo[currentTeamIdx];
+                document.getElementById('status-display').textContent = `當前：${team.id} 小隊 ${!team.baseSelected ? '(請選基地)' : ''}`; 
+            }
+        }
 
         function checkConnectivityAfterRemove(team, tileToRemove) {
             const mapData = gameState.mapData || {};
