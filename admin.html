@@ -30,15 +30,15 @@
         .tile-btn { position: relative; background: #334155; border: 2px solid #475569; border-radius: 6px; padding: 4px; transition: all 0.2s; height: 50px; display: flex; align-items: center; justify-content: center; }
         .tile-btn:hover { border-color: #3b82f6; background: #1e293b; }
         .tile-btn.active { border-color: #3b82f6; background: #1e3a8a; box-shadow: 0 0 10px rgba(59,130,246,0.5); }
-        .mini-grid { display: grid; grid-template-columns: repeat(4, 6px); grid-template-rows: repeat(3, 6px); gap: 1px; pointer-events: none; }
-        .mini-dot { width: 6px; height: 6px; background: #475569; border-radius: 1px; }
+        .mini-grid { display: grid; grid-template-columns: repeat(4, 5px); grid-template-rows: repeat(3, 5px); gap: 1px; pointer-events: none; }
+        .mini-dot { width: 5px; height: 5px; background: #475569; border-radius: 1px; }
         .mini-dot.active { background: #60a5fa; }
-        .tile-id { position: absolute; top: 1px; left: 3px; font-size: 9px; color: #94a3b8; font-family: monospace; }
+        .tile-id { position: absolute; top: 1px; left: 3px; font-size: 8px; color: #94a3b8; font-family: monospace; }
     </style>
 </head>
 <body class="bg-slate-900 flex h-screen overflow-hidden text-slate-200">
 
-    <div class="w-72 p-4 bg-slate-800 flex flex-col gap-4 shrink-0 border-r border-slate-700 custom-scroll overflow-y-auto">
+    <div class="w-80 p-4 bg-slate-800 flex flex-col gap-4 shrink-0 border-r border-slate-700 custom-scroll overflow-y-auto">
         <h1 class="text-lg font-bold text-red-400 border-b border-slate-700 pb-2">管理者系統 V10.5</h1>
         
         <div>
@@ -57,7 +57,7 @@
 
         <div>
             <label class="block text-xs mb-2 text-slate-400 font-bold">選擇板塊 <span class="text-[9px] text-slate-500">R旋轉/F鏡射</span></label>
-            <div id="tile-palette" class="grid grid-cols-3 gap-1.5"></div>
+            <div id="tile-palette" class="grid grid-cols-4 gap-1.5"></div>
         </div>
 
         <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-700 mt-auto">
@@ -80,11 +80,11 @@
     </div>
 
     <div class="flex-1 h-screen flex flex-col items-center p-4 overflow-hidden relative">
-        <div id="status-display" class="mb-4 px-6 py-2 rounded-full bg-slate-800 text-white font-bold text-lg shadow-lg border border-slate-600 z-10">
+        <div id="status-display" class="mb-2 px-6 py-1 rounded-full bg-slate-800 text-white font-bold text-base shadow-lg border border-slate-600 z-10">
             正在連線...
         </div>
         
-        <div class="bg-slate-800 p-2 rounded-lg shadow-2xl scale-[0.82] origin-top transition-transform">
+        <div class="bg-slate-800 p-2 rounded-lg shadow-2xl scale-[0.88] origin-top transition-transform">
             <div id="game-map"></div>
         </div>
 
@@ -108,7 +108,7 @@
     </div>
 
     <script>
-        // --- Firebase & 變數設定 (延續 V10.5) ---
+        // --- Firebase & 變數設定 (維持不變) ---
         const firebaseConfig = {
             apiKey: "AIzaSyBBufDrt_ReM-5qLeQyJs2nXAwdMO_TbC4",
             authDomain: "sunflower-b5be6.firebaseapp.com",
@@ -183,7 +183,7 @@
             }
         }
 
-        // --- 其餘功能邏輯 (維持不變) ---
+        // --- 核心邏輯 (其餘保持不變) ---
         function startListening() {
             db.ref('sandtable').on('value', (snapshot) => {
                 const val = snapshot.val();
