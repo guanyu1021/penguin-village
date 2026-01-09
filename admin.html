@@ -422,31 +422,61 @@
             });
         }
 
-        // --- 抽獎與其餘功能 ---
+        // --- 抽獎與其餘功能 (包含重置邏輯) ---
         function openLottery(count) {
+            // 每次開啟時，重置彈窗 UI 到初始狀態
+            const icon = document.getElementById('modal-icon');
+            const text = document.getElementById('modal-text');
+            const startBtn = document.getElementById('start-draw-btn');
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+
+            icon.textContent = "🎁";               // 恢復初始圖示
+            icon.classList.remove('slot-active');
             document.getElementById('modal-title').textContent = `獲得 ${count} 次抽獎！`;
-            document.getElementById('start-draw-btn').classList.remove('hidden');
-            document.getElementById('modal-confirm-btn').classList.add('hidden');
+            text.textContent = "準備好抽獎了嗎？";    // 恢復初始文字
+            
+            startBtn.classList.remove('hidden');   // 顯示開始按鈕
+            confirmBtn.classList.add('hidden');    // 隱藏確定按鈕
+            
             document.getElementById('item-modal').classList.remove('hidden');
         }
 
         function startSlotMachine() {
             if(isSpinning) return;
-            isSpinning = true; const icon = document.getElementById('modal-icon');
-            icon.classList.add('slot-active'); let c = 0;
+            isSpinning = true; 
+            
+            const icon = document.getElementById('modal-icon');
+            const text = document.getElementById('modal-text');
+            const startBtn = document.getElementById('start-draw-btn');
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+
+            text.textContent = "正在抽取領地寶藏...";
+            icon.classList.add('slot-active'); 
+            
+            let c = 0;
             const keys = Object.keys(ITEM_ICONS);
+            
             const spin = setInterval(() => {
                 icon.textContent = ITEM_ICONS[keys[Math.floor(Math.random()*keys.length)]];
                 if(++c > 20) {
-                    clearInterval(spin); isSpinning = false;
-                    const randIdx = Math.floor(Math.random() * (gameState.itemPool || []).length);
-                    const item = gameState.itemPool.splice(randIdx, 1)[0];
-                    icon.textContent = ITEM_ICONS[item] || "📭";
-                    document.getElementById('modal-text').textContent = item ? `獲得：${item}` : "道具池已空！";
+                    clearInterval(spin); 
+                    isSpinning = false;
+                    
+                    const pool = gameState.itemPool || [];
+                    if(pool.length === 0) {
+                        icon.textContent = "📭";
+                        text.textContent = "道具池已空！";
+                    } else {
+                        const randIdx = Math.floor(Math.random() * pool.length);
+                        const item = pool.splice(randIdx, 1)[0];
+                        icon.textContent = ITEM_ICONS[item] || "❓";
+                        text.textContent = `獲得：${item}`;
+                        db.ref('sandtable/itemPool').set(pool);
+                    }
+                    
                     icon.classList.remove('slot-active');
-                    document.getElementById('modal-confirm-btn').classList.remove('hidden');
-                    document.getElementById('start-draw-btn').classList.add('hidden');
-                    db.ref('sandtable/itemPool').set(gameState.itemPool);
+                    confirmBtn.classList.remove('hidden');
+                    startBtn.classList.add('hidden');
                 }
             }, 50);
         }
