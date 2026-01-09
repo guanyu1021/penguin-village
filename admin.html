@@ -373,7 +373,7 @@
                 const pValue = (t.penalties || [false, false]).filter(p => p).length * 5;
                 const bonus = (t.bonusScore || 0);
                 t.score = (n * n) + (types.size * 2) - pValue + bonus;
-                t.scoreDetail = `正方:${n}² | 種類:${types.size} | 道具:${bonus-pValue}`;
+                t.scoreDetail = `正方形:${n}² | 種類:${types.size} | 道具:${bonus-pValue}`;
             });
 
             const board = document.getElementById('score-board'); board.innerHTML = '';
