@@ -55,6 +55,7 @@
             <section>
                 <div class="flex items-center gap-3 mb-6 border-l-4 border-emerald-500 pl-4">
                     <h2 class="text-2xl font-bold text-emerald-500">小隊扭蛋次數</h2>
+                    <span class="text-sm text-slate-400">(上限為 2)</span>
                 </div>
                 <div id="capsule-container" class="grid grid-cols-4 gap-3 bg-slate-800 p-4 rounded-xl border border-slate-700">
                     </div>
@@ -122,7 +123,7 @@
 
         function renderTiles() {
             const container = document.getElementById('tiles-container');
-            container.innerHTML = ''; // 清空重新渲染
+            container.innerHTML = ''; 
             for (let i = 1; i <= 16; i++) {
                 const div = document.createElement('div');
                 div.className = "bg-slate-800 border border-slate-700 p-3 rounded-xl card-glow text-center flex flex-col items-center";
@@ -211,7 +212,8 @@
 
         function updateCapsule(teamId, delta) {
             const current = storeData.capsules[teamId] !== undefined ? storeData.capsules[teamId] : 2;
-            const next = Math.max(0, current + delta);
+            // 修改點：加入 Math.min(2, ...) 限制上限為 2
+            const next = Math.max(0, Math.min(2, current + delta));
             db.ref(`store/capsules/${teamId}`).set(next);
         }
 
