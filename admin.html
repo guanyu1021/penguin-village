@@ -410,7 +410,7 @@
             [...gameState.teamInfo].sort((a,b)=>b.score - a.score).forEach((t, i) => {
                 const p = t.penalties || [false, false];
                 const d = document.createElement('div');
-                d.className = 'p-2 bg-slate-800 rounded border-l-16 shadow'; d.style.borderColor = t.color;
+                d.className = 'p-2 bg-slate-800 rounded border-l-8 shadow'; d.style.borderColor = t.color;
                 d.innerHTML = `
                     <div class="flex justify-between items-center font-bold text-white mb-0.5 text-xs">
                         <span class="truncate pr-1">${i+1}. ${t.id}</span> 
